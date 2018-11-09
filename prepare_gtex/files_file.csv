@@ -1,0 +1,12 @@
+﻿data,path
+annotation,./gencode.v19.annotation.patched_contigs.gtf
+eqtl,./GTEx_Analysis_v7_eQTL
+exon_reads,./GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_exon_reads.txt
+junction,./GTEx_Analysis_2016-01-15_v7_STARv2.4.2a_junctions.gct
+gene_reads,./GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_reads.gct
+gene_tpm,./GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct
+transcript_reads,./GTEx_Analysis_2016-01-15_v7_RSEMv1.2.22_transcript_expected_count.txt
+transcript_tpm,./GTEx_Analysis_2016-01-15_v7_RSEMv1.2.22_transcript_tpm.txt
+tissues,./tissues.txt
+samples,./GTEx_v7_Annotations_SampleAttributesDS.txt
+subjects,./GTEx_v7_Annotations_SubjectPhenotypesDS.txt
