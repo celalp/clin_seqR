@@ -1,0 +1,37 @@
+proxy:
+  title: ClinSeqR Shiny App Login
+  logo-url: https://choosingwiselycanada.org/wp-content/uploads/2017/12/sickkids.jpg
+  landing-page: /
+  heartbeat-rate: 10000
+  heartbeat-timeout: 60000
+  port: 8080
+  authentication: simple
+  admin-groups: scientists
+  users:
+  - name: clinseqr
+    password: clinseqr
+    groups: scientists
+  - name: jack
+    password: password
+    groups: debug
+  docker:
+      internal-networkng: true
+  specs:
+  - id: clin_seqr
+    display-name: Clin SeqR GTEx dashboard
+    description: Application to explore GTEx expression data
+    container-cmd: ["R", "-e", "shiny::runApp('/clin_seqR/clin_seqR_gtex')"]
+    container-image: celalp/clinseqr_gtex
+    container-volumes: "/home/acelik/clin_seqR/data:/clin_seqR/data"
+    access-groups: scientists
+    container-network: clinseqr-net
+  - id: 01_hello
+    display-name: Hello Application
+    description: Application which demonstrates the basics of a Shiny app
+    container-cmd: ["R", "-e", "shinyproxy::run_01_hello()"]
+    container-image: openanalytics/shinyproxy-demo
+    access-groups: debug
+    container-network: clinseqr-net
+logging:
+  file:
+    shinyproxy.log
