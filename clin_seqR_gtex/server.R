@@ -10,7 +10,6 @@ server<-function(input, output, session){
   toastr_info(message = "loading dependencies please wait...")
   
   suppressPackageStartupMessages(library(shiny))
-  suppressPackageStartupMessages(library(shinydashboard))
   suppressPackageStartupMessages(library(plotly))
   suppressPackageStartupMessages(library(DT))
   suppressPackageStartupMessages(library(ggplot2))
@@ -19,12 +18,10 @@ server<-function(input, output, session){
   suppressPackageStartupMessages(library(shinytoastr))
   suppressPackageStartupMessages(library(shinyWidgets))
   suppressPackageStartupMessages(library(shinycssloaders))
-  suppressPackageStartupMessages(library(shinydashboardPlus))
   suppressPackageStartupMessages(library(shinytoastr))
   suppressPackageStartupMessages(library(shinyjs))
   suppressPackageStartupMessages(library(DBI))
   suppressPackageStartupMessages(library(reshape2))
-  suppressPackageStartupMessages(library(dashboardthemes))
   suppressPackageStartupMessages(library(GenomicFeatures))
   suppressPackageStartupMessages(library(viridis))
   suppressPackageStartupMessages(library(tm))
@@ -45,7 +42,7 @@ server<-function(input, output, session){
   gene_table<-dbGetQuery(median_connect,"select [Ensembl Id], [Gene Name] from median_expression")
   annots<-loadDb("../data/gtex_annotation.db")
   collapsed_annots<-loadDb("../data/gtex_collapsed_annotation.db")
-  
+  removeClass(selector = "body", class = "sidebar-collapse")
   ######## GTEX TAB I/O #########
   
   output$gene_select<-renderUI({
