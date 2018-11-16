@@ -27,7 +27,7 @@ source("../modules/sample_subject_filter.R")
 
 median_connect<-dbConnect(drv=RSQLite::SQLite(), dbname="../data/namedb.db")
 
-ui<-navbarPage("ClinSeqR", 
+ui<-navbarPage("ClinSeqR", theme = shinytheme("paper"),
                tabPanel("Explore GTEx Data", 
                         fluidRow(
                           sidebarLayout(
@@ -53,13 +53,14 @@ ui<-navbarPage("ClinSeqR",
                                                  filter_modal_ui("gtex_filter")),
                                          actionButton("filter_gtex_data", label = "Filter Data"),
                                          br(),
-                                         actionButton("select_genes_bttn", label = "View Median Expression"),
+                                         actionButton("select_genes_bttn", label = "Select Genes"),
                                          br(),
                                          actionButton("get_gtex_dbs", label = "Get detailed data")
                             ), 
                             mainPanel(
+                              useToastr(),
                               fluidRow(
-                              plotlyOutput("tpm_heat")
+                                plotlyOutput("tpm_heat", height = "600px")
                               ), 
                               column(width=2,
                                      br(),
@@ -69,14 +70,15 @@ ui<-navbarPage("ClinSeqR",
                               ),
                               column(width=10,
                                      tags$h3("Gene Expression Distribution"),
+                                     #bsAlert("gene_exp_alert"),
                                      withSpinner(
                                        plotlyOutput("gene_exp"), color = '#454545'
                                      )
                               ), 
                               tags$h3("Isoform/Exon/Junction Expression"),
                               tagList(
-                                column(offset = 1, width = 10,
-                                       uiOutput("title")),
+                                #bsAlert("genevis_alert"),
+                                uiOutput("title"),
                                 genevis_ui("gtex_plot")
                               )
                             )
@@ -85,6 +87,5 @@ ui<-navbarPage("ClinSeqR",
                         
                )
 )
-               
-               
-               
+
+

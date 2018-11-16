@@ -193,17 +193,17 @@ genevis<-function(input, output, session, datadir, tissues, samples,
                   annot, collapsed_annot, gene_id){ # this needs data as well
   
   txdf_transcript<-reactive({
-    txdf<-parse_exon_df(annot = annot, gene_name = gene_id()[1,1])
+    txdf<-parse_exon_df(annot = annot, gene_name = gene_id()[1])
     return(txdf)
   })
   
   txdf_exon<-reactive({
-    txdf<-parse_exon_df(annot = collapsed_annot, gene_name = gene_id()[1,1])
+    txdf<-parse_exon_df(annot = collapsed_annot, gene_name = gene_id()[1])
     return(txdf)
   })
   
   txdf_junction<-reactive({
-    txdf<-parse_exon_df(annot = collapsed_annot, gene_name = gene_id()[1,1])
+    txdf<-parse_exon_df(annot = collapsed_annot, gene_name = gene_id()[1])
     return(txdf)
   })
   
@@ -249,7 +249,9 @@ genevis<-function(input, output, session, datadir, tissues, samples,
     } else {
       NULL
     }
-  })
+  },height = function() {
+    max(txdf_transcript()$tx_rank*40)}
+  )
   
   output$exon_exp<-renderPlotly({
     if(!is.null(gene_id())){

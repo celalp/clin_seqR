@@ -109,8 +109,14 @@ server<-function(input, output, session){
       tissues<-colnames(forheat)[-c(1:2)]
       genes<-forheat$'Gene Name'
       mat<-as.matrix(forheat[,-c(1:2)])
+      ## rescale colors
+      vals <- unique(scales::rescale(c(mat)))
+      o <- order(vals, decreasing = FALSE)
+      cols <- scales::col_numeric("Spectral", domain = NULL)(vals)
+      colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+      ####
       plot_ly(y=tissues, x=genes, z=t(mat), type="heatmap", 
-              source="tpm_heatplot") %>% 
+              source="tpm_heatplot", colorscale=colz) %>% 
         layout(xaxis=list(title="", dtick=1), 
                yaxis=list(title="", dtick=1))
     }
@@ -171,16 +177,16 @@ server<-function(input, output, session){
         dat_tbl<-"transcript_reads"
       }
       s<-as.list(s)
-      all_selected_genes<-gene_table[input$selection_table_rows_selected, ]
-      all_selected_genes<-all_selected_genes[base::order(all_selected_genes$'Gene Name'), ]
-      gene_id<-unique(all_selected_genes[s$curveNumber+1,])
+      all_gene_names<-sort(unique(genes_df()$genes$`Gene Name`))
+      selected_gene<-unique(all_gene_names[(s$curveNumber+1)])
+      gene_id<-genes_df()$genes$`Ensembl Id`[genes_df()$genes$`Gene Name`==selected_gene]
     }
     return(gene_id)
   })
   
   output$title<-renderUI({
     if(!is.null(clicked_gene())){
-        tags$h4(paste("Displaying information for ", clicked_gene()[2]))
+        tags$h4(paste("Displaying information for ", clicked_gene()))
     } else {
       NULL
     }
