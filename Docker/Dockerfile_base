@@ -35,7 +35,7 @@ RUN apt-get install -y software-properties-common --yes && \
     apt-get update && \
     apt-get install  r-base r-base-dev --yes
 
-RUN wget https://raw.githubusercontent.com/celalp/clin_seqR/master/utils/package_install.R
+COPY package_install.R /package_install.R
 
 RUN Rscript package_install.R
 

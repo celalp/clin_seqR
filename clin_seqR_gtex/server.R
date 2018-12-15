@@ -34,14 +34,15 @@ server<-function(input, output, session){
   
   toastr_info(message = "gathering resources...")
   
-  datadir<-"../data/"
+  datadir<-"/home/alper/Documents/other_drive/data/"
+  print(paste0(datadir, "namedb.db"))
   source("../modules/geneviz.R")
   source("../modules/sample_subject_filter.R")
   source("../utils/getdata.R")
-  median_connect<-dbConnect(drv=RSQLite::SQLite(), dbname="../data/namedb.db")
+  median_connect<-dbConnect(drv=RSQLite::SQLite(), dbname=paste0(datadir, "namedb.db"))
   gene_table<-dbGetQuery(median_connect,"select [Ensembl Id], [Gene Name] from median_expression")
-  annots<-loadDb("../data/gtex_annotation.db")
-  collapsed_annots<-loadDb("../data/gtex_collapsed_annotation.db")
+  annots<-loadDb(paste0(datadir, "gtex_annotation.db"))
+  collapsed_annots<-loadDb(paste0(datadir, "gtex_collapsed_annotation.db"))
   removeClass(selector = "body", class = "sidebar-collapse")
   ######## GTEX TAB I/O #########
   

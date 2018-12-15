@@ -16,7 +16,7 @@ def to_pgres(tissue, datadir, user, pwd, dbname):
     pgres_engine = sql.create_engine(pgres)
     if not utils.database_exists(pgres_engine.url):
         utils.functions.create_database(pgres_engine.url)
-        pgres_engine.execute(sql.schema.CreateSchema(sname))
+    pgres_engine.execute(sql.schema.CreateSchema(sname))
 
     dbname = datadir + "/" + fname + "_gtex.db"
     conn = "sqlite:///" + dbname

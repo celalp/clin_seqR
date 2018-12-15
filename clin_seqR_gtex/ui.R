@@ -24,8 +24,8 @@ suppressPackageStartupMessages(library(shinythemes))
 
 source("../modules/geneviz.R")
 source("../modules/sample_subject_filter.R")
-
-median_connect<-dbConnect(drv=RSQLite::SQLite(), dbname="../data/namedb.db")
+datadir<-"/home/alper/Documents/other_drive/data/"
+median_connect<-dbConnect(drv=RSQLite::SQLite(), dbname=paste0(datadir, "namedb.db"))
 
 ui<-navbarPage("ClinSeqR", theme = shinytheme("paper"),
                tabPanel("Explore GTEx Data", 

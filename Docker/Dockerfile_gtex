@@ -11,7 +11,8 @@ RUN wget https://raw.githubusercontent.com/openanalytics/shinyproxy-template/mas
 
 RUN mv Rprofile.site /usr/lib/R/etc/Rprofile.site
 
-RUN ls -l clin_seqR/
+RUN cd clin_seqR/ && \
+    git branch vanilla
 
 # mount the folder that has the data
 
