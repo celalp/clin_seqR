@@ -5,9 +5,27 @@
 
 # Alper Celik
 
+
+
+
 server<-function(input, output, session){
   
+  library(optparse)
+  option_list <- list( 
+    make_option(c("-c", "--credentials" , action="store", default=NULL,
+                  help="Print extra output [default]")))
+  
+  #credentials<-unlist(strsplit(args$credentials, split = ":"))
+  credentials<-c("alper", "pass")
+  conn<-dbConnect(drv = RPostgreSQL::PostgreSQL(), host="localhost", 
+                  dbname="gtex",
+                  user=credentials[1], password=credentials[2])
+  
   toastr_info(message = "loading dependencies please wait...")
+  
+  query<-"select geneid,genesymbol  from annotation.median_expression"
+  query<-sqlInterpolate(conn, query)
+  gene_table<-dbGetQuery(conn, query)
   
   suppressPackageStartupMessages(library(shiny))
   suppressPackageStartupMessages(library(plotly))
@@ -22,11 +40,9 @@ server<-function(input, output, session){
   suppressPackageStartupMessages(library(shinyjs))
   suppressPackageStartupMessages(library(DBI))
   suppressPackageStartupMessages(library(reshape2))
-  suppressPackageStartupMessages(library(GenomicFeatures))
   suppressPackageStartupMessages(library(viridis))
   suppressPackageStartupMessages(library(tm))
   suppressPackageStartupMessages(library(data.table))
-  suppressPackageStartupMessages(library(RSQLite))
   suppressPackageStartupMessages(library(shinyBS))
   suppressPackageStartupMessages(library(purrr))
   
@@ -34,17 +50,21 @@ server<-function(input, output, session){
   
   toastr_info(message = "gathering resources...")
   
-  datadir<-"/home/alper/Documents/other_drive/data/"
-  print(paste0(datadir, "namedb.db"))
   source("../modules/geneviz.R")
   source("../modules/sample_subject_filter.R")
   source("../utils/getdata.R")
-  median_connect<-dbConnect(drv=RSQLite::SQLite(), dbname=paste0(datadir, "namedb.db"))
-  gene_table<-dbGetQuery(median_connect,"select [Ensembl Id], [Gene Name] from median_expression")
-  annots<-loadDb(paste0(datadir, "gtex_annotation.db"))
-  collapsed_annots<-loadDb(paste0(datadir, "gtex_collapsed_annotation.db"))
-  removeClass(selector = "body", class = "sidebar-collapse")
-  ######## GTEX TAB I/O #########
+  
+  output$tissue_select_ui<-renderUI({
+    query="select column_name from information_schema.columns where table_schema='annotation' and table_name='median_expression';"
+    query=sqlInterpolate(conn, query)
+    choices=dbGetQuery(conn, query)[-c(1:3),]
+    choices=unlist(gsub("\\.", " ", choices))
+    pickerInput("selected_tissues", label = "Select Tissues",
+                choices = choices, 
+                options=list(`max-options`=10, 
+                             `live-search`=T, size=10), 
+                multiple = TRUE)
+  })
   
   output$gene_select<-renderUI({
     if(input$gtex_selection_type=="Select From List"){
@@ -60,7 +80,10 @@ server<-function(input, output, session){
       textAreaInput("gtex_text", label = "Enter genes", 
                     placeholder = "Enter Ensembl IDs here one per line. Max 20")
     } else {
-      panels<-dbGetQuery(median_connect, "select distinct(panel_name) from gene_panels")
+      query<-"select distinct(gene_panels.panelname) from annotation.gene_panels"
+      query<-sqlInterpolate(conn, query)
+      panels<-dbGetQuery(conn, query)
+      panels<-gsub("_", " ", panels$panelname)
       pickerInput("gene_panel_selection", "Select Gene Panel", multiple = F, 
                   choices = panels)
     }
@@ -71,26 +94,29 @@ server<-function(input, output, session){
     selectRows(gene_select_proxy, NULL)
   })
   
-  genes_df<-eventReactive(input$select_genes_bttn, {
+  genes_df<-eventReactive(c(input$select_genes_bttn, input$get_gtex_dbs), {
     if(input$gtex_selection_type=="Select From List"){
-      rows<-paste(input$selection_table_rows_selected, collapse = ",")
-      genes<-dbGetQuery(median_connect, 
-                        paste("select * from median_expression where rowid in (", rows, ")", collapse = ""))
+      genes<-gene_table$geneid[input$selection_table_rows_selected]
+      genes<-paste(paste0("'", genes, "'"), collapse=",")
+      query<-paste("select * from annotation.median_expression where geneid in (", genes, ")")
+      genes<-dbGetQuery(conn, query)
     } else if (input$gtex_selection_type == "Enter Text"){
       typed<-unlist(strsplit(input$gtex_text, "\n"))
       found<-which(gene_table[,1] %in% typed)
-      genes<-dbGetQuery(median_connect, 
-                        paste("select * from median_expression where rowid in (", rows, ")", collapse = ""))
+      gen<-paste(paste0("'", found, "'"), collapse=",")
+      query<-paste("select * from annotation.median_expression where geneid in (", found, ")")
+      genes<-dbGetQuery(conn, query)
       not_found<-typed[!(typed %in% genes[,1])]
       if(length(not_found)>0){
         toastr_warning(message = paste(not_found, "not in the gene list\n"))
       }
     } else {
-      panel_genes<-unlist(dbGetQuery(median_connect, paste("select gene_symbol from gene_panels where panel_name = '", 
-                                                           input$gene_panel_selection, "'", sep = "")))
+      query<-"select genesymbol from annotation.gene_panels where panelname = ?panel"
+      query<-sqlInterpolate(conn, query, panel=input$gene_panel_selection)
+      panel_genes<-unlist(dbGetQuery(conn, query))
       panel_genes<-paste("'", panel_genes, "'", sep="", collapse = ",")
-      query<- paste("select * from median_expression where [Gene Name] in (", panel_genes, ")", sep = "")
-      genes<-dbGetQuery(median_connect, query)
+      query<- paste("select * from annotation.median_expression where genesymbol in (", panel_genes, ")", sep = "")
+      genes<-dbGetQuery(conn, query)
     }
     if(nrow(genes)>50 && input$gtex_selection_type!="Select Gene Panel"){
       toastr_error("Too many genes selected limit 50")
@@ -107,9 +133,9 @@ server<-function(input, output, session){
   output$tpm_heat<-renderPlotly({
     if(!(is.null(genes_df()))){
       forheat<-genes_df()$genes
-      tissues<-colnames(forheat)[-c(1:2)]
-      genes<-forheat$'Gene Name'
-      mat<-as.matrix(forheat[,-c(1:2)])
+      tissues<-colnames(forheat)[-c(1:3)]
+      genes<-forheat$genesymbol
+      mat<-as.matrix(forheat[,-c(1:3)])
       ## rescale colors
       vals <- unique(scales::rescale(c(mat)))
       o <- order(vals, decreasing = FALSE)
@@ -120,13 +146,15 @@ server<-function(input, output, session){
               source="tpm_heatplot", colorscale=colz) %>% 
         layout(xaxis=list(title="", dtick=1), 
                yaxis=list(title="", dtick=1))
+    } else {
+      toastr_error("Please select some genes to display their median expression values")
     }
   })
   
   tissues<-reactive({input$selected_tissues})
   
   filtered_samples<-callModule(module = filter_modal_server, id="gtex_filter", 
-                               tissues=tissues, datadir=datadir)
+                               tissues=tissues, conn=conn)
   
   genes_data<-eventReactive(c(input$get_gtex_dbs,input$gene_tpm_reads), {
     if(length(input$selected_tissues)==0){
@@ -139,10 +167,10 @@ server<-function(input, output, session){
       }
       gene_names<-genes_df()$genes
       tissues<-input$selected_tissues
-      genes_data<-get_expression(datadir=datadir, 
-                                 gene_id=genes_df()$genes$'Ensembl Id', 
+      genes_data<-get_expression(conn=conn, 
+                                 gene_id=genes_df()$genes$geneid, 
                                  tissue=input$selected_tissues, 
-                                 samples=filtered_samples(), # this will be samples()$samples
+                                 samples=filtered_samples(),
                                  table=table, extra_columns="gene_name"
       )
       genes_data<-do.call("rbind", genes_data)
@@ -151,7 +179,7 @@ server<-function(input, output, session){
   })
   
   output$gene_exp<-renderPlotly({
-    if(is.null(genes_data()$genes_data) && !is.null(genes_df())){
+    if(is.null(genes_data())){
       toastr_warning("Please select tissues to see their expression patterns")
       NULL
     } else {
@@ -187,7 +215,7 @@ server<-function(input, output, session){
   
   output$title<-renderUI({
     if(!is.null(clicked_gene())){
-        tags$h4(paste("Displaying information for ", clicked_gene()))
+      tags$h4(paste("Displaying information for ", clicked_gene()))
     } else {
       NULL
     }
@@ -201,7 +229,14 @@ server<-function(input, output, session){
              datadir=datadir, tissues=tissues, samples=filtered_samples,
              annot=annots, collapsed_annot=collapsed_annots,
              gene_id=clicked_gene)
-
+  
+  
+  
+  session$onSessionEnded(
+    function(){
+      dbDisconnect(conn)
+    }
+  )
 }
 
 

@@ -31,13 +31,12 @@ def make_ped(samplename, project_name, tissue):
     ped_df.to_csv(filename, index=False, sep="\t")
     return (filename, ped_df)
 
-
-def process_vcf(vcf, ped, samplename, python2, vcf2db, filepath="."):
-    dbpath=filepath+"/"+samplename+".db"
-    cmd = " ".join([python2, vcf2db, vcf, ped, dbpath])
-    os.system(cmd)
-    return dbpath
-
+# this is now process gemini
+#def process_vcf(vcf, ped, samplename, python2, vcf2db, filepath="."):
+#    dbpath=filepath+"/"+samplename+".db"
+#    cmd = " ".join([python2, vcf2db, vcf, ped, dbpath])
+#    os.system(cmd)
+#    return dbpath
 
 # alot of  hard coded things in here need to talk to sergey
 def process_genes(file, samplename):
@@ -64,17 +63,15 @@ def process_junctions(file, samplename):
 
 if __name__=="__main__":
     parser = arg.ArgumentParser(description='make an new database or add to exisitng samples database')
-    parser.add_argument('--python2', type=str, help='python2 path defaults to "python2"', default='python2')
-    parser.add_argument('--vcf2db', type=str, help='vcf2db path defaults to "vcf2db', default='vcf2db')
-    parser.add_argument('--vcf', type=str, help="where the vcf is, this will be parsed by vcf2db")
+    parser.add_argument('--gemini', type=str, help="where the geminidb is")
     parser.add_argument('--genes', type=str, help="genes_file")
     parser.add_argument('--transcripts', type=str, help="transcripts file")
     parser.add_argument('--junctions', type=str, help="junctions file")
     parser.add_argument('-s', '--samplename', type=str)
     parser.add_argument('-p', '--projectname', type=str)
     parser.add_argument('-t', '--tissue', type=str)
-    parser.add_argument('--user', type=str, help="If using postgres", default=None)
-    parser.add_argument('--pwd', type=str, help="If using a database type that is not sqlite")
+    parser.add_argument('--user', type=str, help="username", default=None)
+    parser.add_argument('--pwd', type=str, help="password")
     parser.add_argument('-n', '--dbname', type=str, help="Name of the posgtres database", default="samples")
     args = parser.parse_args()
 
@@ -84,19 +81,23 @@ if __name__=="__main__":
     if not utils.database_exists(pgres_engine.url):
         utils.functions.create_database(pgres_engine.url)
 
-    ped=make_ped(samplename=args.samplename, project_name=args.projectname, tissue=args.tissue)
-    gemname = process_vcf(vcf=args.vcf, ped=ped[0], samplename=args.samplename,
-                          python2=args.python2, vcf2db=args.vcf2db)
 
     #put logger here
-
-    conn = "sqlite:///" + gemname
-    slite_engine = sql.create_engine(conn, echo=False)
-
+    ped=make_ped(samplename=args.samplename, project_name=args.projectname, tissue=args.tissue)
     ped[1].to_sql("samples", con=pgres_engine, if_exists='append')
 
-    variants=pd.read_sql_table("variants", con=slite_engine)
+    conn = "sqlite:///" + args.gemini
+    slite_engine = sql.create_engine(conn, echo=False)
 
-    with pgres_engine.connec() as connection:
-        index = "create index on " + sname + "." + table + "(sampid)"
+    #from one db to another in chunks
+    for chunk in pd.read_sql_table('variants', slite_engine, chunksize=50000):
+        chunk['project_name']=ped[1]['project_name']
+        cols_to_keep=[col for col in chunk.columns.values if "gt" not in col or "vep" not in col]
+        chunk.to_sql("variants", pgres_engine, if_exists='append', chunksize=50000)
+
+    with pgres_engine.connect() as con:
+    # TODO figure out which columns to index
+        index = "create index on variants "+index_cols
         con.execute(index)
+
+
