@@ -128,7 +128,6 @@ filter_modal_server<-function(input, output, session, tissues, conn){
       samp_sub$samples<-samp_sub$samples %>%
         filter (subject %in% c(samp_sub$subjects$subjid))
       #TODO apply sample filters
-      print(input$mapping_rate, input$rin)
       return(samp_sub)
     } else {
       NULL

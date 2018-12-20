@@ -24,7 +24,7 @@ suppressPackageStartupMessages(library(shinythemes))
 source("../modules/geneviz.R")
 source("../modules/sample_subject_filter.R")
 
-ui<-navbarPage("Explore GTEx Module",
+ui<-navbarPage("GTEx Module", inverse = T, theme = shinytheme("cerulean"),
                tabPanel("Explore GTEx Data", 
                         fluidRow(
                           sidebarLayout(
@@ -52,7 +52,11 @@ ui<-navbarPage("Explore GTEx Module",
                             mainPanel(
                               useToastr(),
                               fluidRow(
+                                tagList(
+                                  #this does not display properly
+                                tags$h3("Median Expression"),
                                 plotlyOutput("tpm_heat", height = "600px")
+                                )
                               ), 
                               column(width=2,
                                      br(),

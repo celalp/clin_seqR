@@ -1,31 +1,38 @@
 ########## FUNCTIONS ###########
 
-get_exon_df<-function(annot, gene_name){
-  df<-AnnotationDbi::select(annot, keys=gene_name, 
-                            columns=c("GENEID", "TXNAME", "EXONNAME", "EXONRANK", 
-                                      "EXONSTART", "EXONEND", "EXONSTRAND"),
-                            keytype = "GENEID")
-  df$rank<-as.integer(as.factor(df$TXNAME))
-  colnames(df)<-c("gene", "name", "strand", "start", "end", "rank", "tx", "tx_rank")
-  df$class<-"exon"
-  actual_start<-min(df$start)
-  exons_data<-list(df=df, start=actual_start)
-  return(exons_data)
+get_exon_df<-function(conn, gene_name=NULL, collapsed=F){
+  if(!is.null(gene_name)){
+    if(collapsed){
+      table<-"annotation.collapsed"
+    } else {
+      table<-"annotation.full"
+    }
+    query<-paste0("select * from ", table, " where geneid=?gene")
+    sql<-sqlInterpolate(conn, query, gene=gene_name)
+    df<-dbGetQuery(conn, sql, gene=gene_name)[,c("geneid", "txname", "exonname", "start", "end", "strand", "exonrank")]
+    df$tx_rank<-as.integer(as.factor(df$txname))
+    df$class<-"exon"
+    actual_start<-min(df$start)
+    exons_data<-list(df=df, start=actual_start)
+    return(exons_data)
+  } else {
+    NULL
+  }
 }
 
 #this needs to be normalized by the gene start
 get_introns<-function(df, actual_start, txname){
-  tx<-df[which(df$tx==txname), ]
+  tx<-df[which(df$txname==txname), ]
   if(nrow(tx)>2){
     tx<-tx[base::order(tx$start),]
     intron_start<-tx$start[-nrow(tx)]+1
     intron_end<-tx$end[-1]-1
-    intron_name<-paste(tx$name[-nrow(tx)], tx$name[-1], sep="_") 
+    intron_name<-paste(tx$exonname[-nrow(tx)], tx$exonname[-1], sep="_") 
     len<-length(intron_name)
-    introndf<-data.frame(gene=rep(tx$gene[1], len), name=intron_name, 
+    introndf<-data.frame(geneid=rep(tx$gene[1], len), exonname=intron_name, 
                          strand=rep(tx$strand[1], len), start=intron_start, 
-                         end=intron_end, rank=seq(from=1, to=len), 
-                         tx=rep(tx$tx[1], len), tx_rank=rep(tx$tx_rank[1], len), 
+                         end=intron_end, exonrank=seq(from=1, to=len), 
+                         txname=rep(tx$txname[1], len), tx_rank=rep(tx$tx_rank[1], len), 
                          class=rep("intron", len))
     dat<-rbind(tx, introndf)
     dat<-dat[base::order(dat$start), ]
@@ -33,46 +40,46 @@ get_introns<-function(df, actual_start, txname){
   } else {
     dat<-tx
   }
-  lengths<-dat$end-dat$start
-  relative_start<-min(dat$start)-actual_start
-  dat$new_start<-c(relative_start, (relative_start + cumsum(lengths[-length(lengths)])))
-  dat$new_end<-cumsum(lengths)+relative_start
   return(dat)
 }
 
 get_introns<-Vectorize(get_introns, vectorize.args = "txname", SIMPLIFY = F)
 
-parse_exon_df<-function(annot, gene_name){
-  df<-get_exon_df(annot = annot, gene_name = gene_name)
-  txs<-unique(df$df$tx)
-  tx_df<-do.call("rbind", get_introns(df$df, txname = txs, actual_start = df$start))
-  return(tx_df)
+parse_exon_df<-function(conn, gene_name, collapsed){
+  if(!is.null(gene_name)){
+    df<-get_exon_df(conn = conn, gene_name = gene_name, collapsed = collapsed)
+    txs<-unique(df$df$txname)
+    tx_df<-do.call("rbind", get_introns(df$df, txname = txs, actual_start = df$start))
+    return(tx_df)
+  }else {
+    NULL
+  }
 }
 
 plot_transcripts<-function(tx_df, hover=NULL){
   if(is.null(hover)){
     p<-ggplot()+
       geom_rect(data=tx_df[tx_df$class=="exon",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.25, 
-                    ymin = -tx_rank - 0.25, text=tx))+
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.25, 
+                    ymin = -tx_rank - 0.25))+
       geom_rect(data=tx_df[tx_df$class=="intron",],
-                aes(xmin = new_start, xmax = new_end, ymax = -tx_rank + 0.01, 
-                    ymin = tx_rank - 0.01, text=tx))+
+                aes(xmin = start, xmax = end, ymax = -tx_rank + 0.01, 
+                    ymin = tx_rank - 0.01))+
       theme_void()+guides(fill=F, color=F)
   } else {
     p<-ggplot()+
       geom_rect(data=tx_df[tx_df$class=="exon",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.25, 
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.25, 
                     ymin = tx_rank - 0.25), alpha=0.3)+
       geom_rect(data=tx_df[tx_df$class=="intron",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.01, 
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.01, 
                     ymin = tx_rank - 0.01), alpha=0.3)+
       # new ggproto on top
       geom_rect(data=tx_df[tx_df$class=="exon" & tx_df$tx_rank==hover,],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.25, 
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.25, 
                     ymin = tx_rank - 0.25), fill="firebrick")+
       geom_rect(data=tx_df[tx_df$class=="intron"& tx_df$tx_rank==hover,],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.01, 
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.01, 
                     ymin = tx_rank - 0.01), color="firebrick")+
       theme_void()+guides(fill=F, color=F)
   }
@@ -80,33 +87,28 @@ plot_transcripts<-function(tx_df, hover=NULL){
 }
 
 # need to add a function that links the plotly to the ggplot for brush events
-plot_exons<-function(tx_df, hover, select=NULL){
+plot_exons<-function(tx_df, select){
   if(is.null(select)){
-    #tx_df<-txdf
-  } else {
-    max_curve<-max(select$curveNumber)
-    min_curve<-min(select$curveNumber)
-  }
-  if(is.null(hover)){
     p<-ggplot()+
       geom_rect(data=tx_df[tx_df$class=="exon",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.25, 
-                    ymin = tx_rank - 0.25, text=tx))+
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.25, 
+                    ymin = tx_rank - 0.25))+
       geom_rect(data=tx_df[tx_df$class=="intron",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.01, 
-                    ymin = tx_rank - 0.01, text=tx))+
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.01, 
+                    ymin = tx_rank - 0.01))+
       theme_void()+guides(fill=F, color=F)
   } else {
+    exondf<-tx_df[tx_df$class=="exon",]
     p<-ggplot()+
       geom_rect(data=tx_df[tx_df$class=="exon",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.25, 
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.25, 
                     ymin = tx_rank - 0.25), alpha=0.3)+
       geom_rect(data=tx_df[tx_df$class=="intron",],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.01, 
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.01, 
                     ymin = tx_rank - 0.01), alpha=0.3)+
       # new ggproto on top
-      geom_rect(data=tx_df[tx_df$class=="exon" & tx_df$rank==hover,],
-                aes(xmin = new_start, xmax = new_end, ymax = tx_rank + 0.25, 
+      geom_rect(data=exondf[select,],
+                aes(xmin = start, xmax = end, ymax = tx_rank + 0.25, 
                     ymin = tx_rank - 0.25), fill="firebrick")+
       theme_void()+guides(fill=F, color=F)
   }
@@ -140,19 +142,6 @@ plot_junctions<-function(junc_exp, tx_df, hover){
   return(p)
 }
 
-#this is for novel isoforms and stuff
-get_altered_coord<-function(df, coord, shortened=T, shortened_by=10){
-  distances<-coord-df$start
-  prec<-distances[distances>0] # find the preceeding ones
-  closest<-min(prec)
-  loc<-df[which(distances==closest),] # this is the index 
-  ratio<-(loc$end-loc$start)/(coord-loc$start)
-  new_coord<-loc$new_start+(loc$new_end-loc$new_start)*ratio
-  return(new_coord)
-}
-
-get_altered_coord<-Vectorize(get_altered_coord, vectorize.args = "coord")
-
 
 ########## MODULE ###########
 
@@ -176,34 +165,36 @@ genevis_ui<-function(id){
     tabPanel("Exon Expression", value = "gtex_exon", 
              #withSpinner(
              column(width=10, offset = 1,
+                    dataTableOutput(ns("exon_table")),
                     plotlyOutput(ns("exon_exp")),
                     plotOutput(ns("gene_model_collapsed"))
              )
     ),
     tabPanel("Junction Expression", value="gtex_junc", 
              column(width = 10, offset = 1, 
-                    plotlyOutput(ns("junc_exp")),
-                    plotOutput(ns("junc_gene_model"))
+                    dataTableOutput(ns("junc_table"))
+                    #plotlyOutput(ns("junc_exp")),
+                    #plotOutput(ns("junc_gene_model"))
              )
     )
   )
 }
 
-genevis<-function(input, output, session, datadir, tissues, samples,
-                  annot, collapsed_annot, gene_id){ # this needs data as well
+genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
+                  conn){ # this needs data as well
   
   txdf_transcript<-reactive({
-    txdf<-parse_exon_df(annot = annot, gene_name = gene_id()[1])
+    txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed=F)
     return(txdf)
   })
   
   txdf_exon<-reactive({
-    txdf<-parse_exon_df(annot = collapsed_annot, gene_name = gene_id()[1])
+    txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed = T)
     return(txdf)
   })
   
   txdf_junction<-reactive({
-    txdf<-parse_exon_df(annot = collapsed_annot, gene_name = gene_id()[1])
+    txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed = T)
     return(txdf)
   })
   
@@ -214,15 +205,18 @@ genevis<-function(input, output, session, datadir, tissues, samples,
       } else {
         iso_tbl<-"transcript_reads"
       }
-      isoform_expression<-get_expression(datadir=datadir, gene_id=gene_id()[1], 
+      isoform_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
                                          samples=samples(), tissue=tissues(), 
-                                         table=iso_tbl, extra_columns="transcript_id")
-      exon_expression<-get_expression(datadir=datadir, gene_id=gene_id()[1], 
+                                         table=iso_tbl, extra_columns='"transcript_id"')
+      isoform_expression<-do.call("rbind", isoform_expression)
+      exon_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
                                       samples=samples(), tissue=tissues(), 
-                                      table="exon_reads", extra_columns="exon_id")
-      junction_expression<-get_expression(datadir=datadir, gene_id=gene_id()[1], 
+                                      table="exon_reads", extra_columns='"exon_id"')
+      exon_expression<-do.call("rbind", exon_expression)
+      junction_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
                                           samples=samples(), tissue=tissues(), 
-                                          table="junctions", extra_columns=c("junction_id", "start","end"))
+                                          table="junctions", extra_columns=c('"junction_id"', '"start"','"end"'))
+      junction_expression<-do.call("rbind", junction_expression)
       expression_data<-list(isoform=isoform_expression, exon=exon_expression, junction=junction_expression)
     } else {
       expression_data<-list(isoform=NULL, exon=NULL, junction=NULL)
@@ -232,7 +226,7 @@ genevis<-function(input, output, session, datadir, tissues, samples,
   
   output$isoform_exp<-renderPlotly({
     if(!is.null(gene_id())){
-      plot_ly(data = do.call("rbind", expression_data()$isoform), x=~tissue, y=~value, 
+      plot_ly(data = expression_data()$isoform, x=~tissue, y=~value, 
               color=~transcript_id, type = "box", source = "isoform_boxplot")%>%
         layout(boxmode = "group", xaxis=list(title="Tissue"), 
                yaxis=list(title=input$isoform_tpm_reads))
@@ -250,12 +244,28 @@ genevis<-function(input, output, session, datadir, tissues, samples,
       NULL
     }
   },height = function() {
-    max(txdf_transcript()$tx_rank*40)}
+    if(!is.null(txdf_transcript())){
+      max(txdf_transcript()$tx_rank*40)
+    } else {
+      50
+    }
+  }
   )
   
+  output$exon_table<-renderDataTable({
+    dat<-txdf_exon()[txdf_exon()$class=="exon",]
+    rownames(dat)<-c(1:nrow(dat))
+    datatable(dat[,c("exonname", "exonrank", "start", "end")])
+  })
+  
   output$exon_exp<-renderPlotly({
-    if(!is.null(gene_id())){
-      plot_ly(data = do.call("rbind", expression_data()$exon), x=~tissue, y=~value, 
+    nointron<-txdf_exon()[txdf_exon()$class=="exon",]
+    exons<-nointron$exonname[input$exon_table_rows_selected]
+    if(!is.null(gene_id()) && length(exons)>0){
+      plot_data<-expression_data()$exon[(expression_data()$exon$exon_id %in% exons), ]
+      
+      plot_ly(data = plot_data,
+              x=~tissue, y=~value, 
               color=~exon_id, type = "box", source = "exon_boxplot")%>%
         layout(boxmode = "group", xaxis=list(title="Tissue"), 
                yaxis=list(title="Read Count"))
@@ -264,10 +274,11 @@ genevis<-function(input, output, session, datadir, tissues, samples,
     }
   })
   
+  #need to change the highlighting mode
   output$gene_model_collapsed<-renderPlot({
     if(!is.null(gene_id())){
-      hover<-event_data(event = "plotly_hover", source="exon_boxplot")$curveNumber+1
-      p<-plot_exons(tx_df= txdf_exon(), hover=hover)
+      select<-input$exon_table_rows_selected
+      p<-plot_exons(tx_df= txdf_exon(), select=select)
       p
     } else {
       NULL
@@ -282,9 +293,16 @@ genevis<-function(input, output, session, datadir, tissues, samples,
     }
   })
   
+  
+  output$junc_table<-renderDataTable({
+    dat<-unique(expression_data()$junction[,c("junction_id", "start", "end")])
+    rownames(dat)<-c(1:nrow(dat))
+    datatable(dat)
+  })
+  
   output$junc_exp<-renderPlotly({
     if(draw_junction()){
-      plot_ly(data = do.call("rbind", expression_data()$junction), x=~tissue, y=~value, 
+      plot_ly(data = expression_data()$junction, x=~tissue, y=~value, 
               color=~junction_id, type = "box", source = "junction_boxplot")%>%
         layout(boxmode = "group", xaxis=list(title="Tissue"), 
                yaxis=list(title="Read Count"))
@@ -293,11 +311,12 @@ genevis<-function(input, output, session, datadir, tissues, samples,
     }
   })
   
+  #need to change the highlighting mode
   output$junc_gene_model<-renderPlot({
     if(draw_junction()) {
-      junc_data<-do.call("rbind", expression_data()$junction)
-      hover<-unique(event_data(event = "plotly_hover", source="junction_boxplot")$curveNumber+1)
-      p<-plot_junctions(junc_exp=junc_data, tx_df= txdf_junction(), hover=hover)
+      junc_data<-expression_data()$junction
+      select<-input$junc_table_rows_selected
+      p<-plot_junctions(junc_exp=junc_data, tx_df= txdf_junction(), select=select)
       p
     } else {
       NULL

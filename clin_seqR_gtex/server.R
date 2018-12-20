@@ -112,7 +112,8 @@ server<-function(input, output, session){
       }
     } else {
       query<-"select genesymbol from annotation.gene_panels where panelname = ?panel"
-      query<-sqlInterpolate(conn, query, panel=input$gene_panel_selection)
+      panel<-gsub(" ", "_", input$gene_panel_selection)
+      query<-sqlInterpolate(conn, query, panel=panel)
       panel_genes<-unlist(dbGetQuery(conn, query))
       panel_genes<-paste("'", panel_genes, "'", sep="", collapse = ",")
       query<- paste("select * from annotation.median_expression where genesymbol in (", panel_genes, ")", sep = "")
@@ -189,6 +190,7 @@ server<-function(input, output, session){
         layout(boxmode = "group", xaxis=list(title="Tissue"), 
                yaxis=list(title=input$gene_tpm_reads)
         )
+     
     }
   })
   
@@ -196,7 +198,7 @@ server<-function(input, output, session){
     s <- event_data("plotly_click", source = "gene_boxplot")
     if (length(s) == 0) {
       gene_id<-NULL
-      expression_data<-NULL
+      gene_symbol<-NULL
     } else {
       # plotly sorts by gene name but returns a 0 based index so I need to sort gene names
       # then get +1 index
@@ -206,16 +208,17 @@ server<-function(input, output, session){
         dat_tbl<-"transcript_reads"
       }
       s<-as.list(s)
-      all_gene_names<-sort(unique(genes_df()$genes$`Gene Name`))
+      all_gene_names<-sort(unique(genes_df()$genes$genesymbol))
       selected_gene<-unique(all_gene_names[(s$curveNumber+1)])
-      gene_id<-genes_df()$genes$`Ensembl Id`[genes_df()$genes$`Gene Name`==selected_gene]
+      gene_symbol<-genes_df()$genes$genesymbol[genes_df()$genes$genesymbol==selected_gene]
+      gene_id<-genes_df()$genes$geneid[genes_df()$genes$genesymbol==selected_gene]
     }
-    return(gene_id)
+    return(c(gene_id, gene_symbol))
   })
   
   output$title<-renderUI({
     if(!is.null(clicked_gene())){
-      tags$h4(paste("Displaying information for ", clicked_gene()))
+      tags$h4(paste("Displaying information for ", clicked_gene()[2]))
     } else {
       NULL
     }
@@ -226,9 +229,8 @@ server<-function(input, output, session){
   })
   
   callModule(module = genevis, id = "gtex_plot", 
-             datadir=datadir, tissues=tissues, samples=filtered_samples,
-             annot=annots, collapsed_annot=collapsed_annots,
-             gene_id=clicked_gene)
+             tissues=tissues, samples=filtered_samples,
+             conn=conn, gene_id=clicked_gene)
   
   
   

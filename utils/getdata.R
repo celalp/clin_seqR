@@ -16,7 +16,6 @@ get_expression<-function(conn, gene_id, tissue, samples, table, extra_columns=NU
     genes_combined<-paste("'", gene_id, "'", sep="", collapse = ",")
     query<-paste("select ", columns, " from ", table,  " where gene_id in (", 
                  genes_combined, ")", sep="")
-    print(query)
   } else {
     query<-paste0("select ", columns, " from ", table, " where gene_id='", gene_id, "'")
   }
