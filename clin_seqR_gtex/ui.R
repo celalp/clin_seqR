@@ -81,7 +81,10 @@ ui<-navbarPage("GTEx Module", inverse = T, theme = shinytheme("cerulean"),
                           )
                         )
                         
-               )
+               ),
+               tags$br(),
+               tags$br(),
+               tags$br()
 )
 
 

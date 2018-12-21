@@ -115,11 +115,11 @@ plot_exons<-function(tx_df, select){
   return(p)
 }
 
-plot_junctions<-function(junc_exp, tx_df, hover){
+plot_junctions<-function(junc_exp, tx_df, select){
   uniq_junc<-unique(junc_exp[, 1:3])
   uniq_junc$start<-as.integer(uniq_junc$start)
   uniq_junc$end<-as.integer(uniq_junc$end)
-  if(length(hover)==0){
+  if(length(select)==0){
     p<-ggplot()+
       geom_rect(data=tx_df[tx_df$class=="exon",],
                 aes(xmin = start, xmax = end, ymax = 0.1, 
@@ -134,7 +134,7 @@ plot_junctions<-function(junc_exp, tx_df, hover){
                     ymin = 0), alpha=0.3)+
       geom_curve(data=uniq_junc, aes(x=start, xend=end, y=0.1, yend=0.1), 
                  curvature=-0.3, alpha=0.3)+
-      geom_curve(data=uniq_junc[hover,], 
+      geom_curve(data=uniq_junc[select,], 
                  aes(x=start, xend=end, y=0.1, yend=0.1), 
                  curvature=-0.3, color="firebrick", size=3)+ylim(0, 1)+
       theme_void()+guides(fill=F, color=F)
@@ -163,19 +163,35 @@ genevis_ui<-function(id){
              )
     ),
     tabPanel("Exon Expression", value = "gtex_exon", 
-             #withSpinner(
-             column(width=10, offset = 1,
-                    dataTableOutput(ns("exon_table")),
-                    plotlyOutput(ns("exon_exp")),
-                    plotOutput(ns("gene_model_collapsed"))
-             )
+             fluidRow(
+               column(width=4,
+                      tags$br(),
+                      dataTableOutput(ns("exon_table")),
+                      actionButton(ns("deselect_exon"), label = "Deselect")
+               ),
+               column(width=7, offset = 1, 
+                      tags$br(),
+                      bsAlert("exon_alert"),
+                      plotlyOutput(ns("exon_exp"))
+               )),
+             tags$hr(),
+             plotOutput(ns("gene_model_collapsed"))
     ),
     tabPanel("Junction Expression", value="gtex_junc", 
-             column(width = 10, offset = 1, 
-                    dataTableOutput(ns("junc_table"))
-                    #plotlyOutput(ns("junc_exp")),
-                    #plotOutput(ns("junc_gene_model"))
-             )
+             fluidRow(
+               column(width=4, 
+                      tags$br(), 
+                      dataTableOutput(ns("junc_table")),
+                      actionButton(ns("deselect_junc"), label = "Deselect")
+               ),
+               column(width=7, offset = 1, 
+                      tags$br(),
+                      bsAlert("junc_alert"),
+                      plotlyOutput(ns("junc_exp"))
+               )
+             ),
+             tags$hr(),
+             plotOutput(ns("junc_gene_model"))
     )
   )
 }
@@ -183,20 +199,16 @@ genevis_ui<-function(id){
 genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
                   conn){ # this needs data as well
   
-  txdf_transcript<-reactive({
+  txdf_full<-reactive({
     txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed=F)
     return(txdf)
   })
   
-  txdf_exon<-reactive({
+  txdf_collapsed<-reactive({
     txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed = T)
     return(txdf)
   })
   
-  txdf_junction<-reactive({
-    txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed = T)
-    return(txdf)
-  })
   
   expression_data<-reactive({
     if(!is.null(gene_id())){
@@ -238,14 +250,14 @@ genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
   output$gene_model_exp<-renderPlot({
     if(!is.null(gene_id())){
       hover<-event_data(event = "plotly_hover", source="isoform_boxplot")$curveNumber+1
-      p<-plot_transcripts(tx_df= txdf_transcript(), hover=hover)
+      p<-plot_transcripts(tx_df= txdf_full(), hover=hover)
       p
     } else {
       NULL
     }
   },height = function() {
-    if(!is.null(txdf_transcript())){
-      max(txdf_transcript()$tx_rank*40)
+    if(!is.null(txdf_full())){
+      max(txdf_full()$tx_rank*40)
     } else {
       50
     }
@@ -253,23 +265,34 @@ genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
   )
   
   output$exon_table<-renderDataTable({
-    dat<-txdf_exon()[txdf_exon()$class=="exon",]
+    dat<-txdf_collapsed()[txdf_collapsed()$class=="exon",]
+    dat<-dat[order(as.integer(dat$exonrank)),]
     rownames(dat)<-c(1:nrow(dat))
-    datatable(dat[,c("exonname", "exonrank", "start", "end")])
+    datatable(dat[,c("exonname", "exonrank")])
+  })
+  
+  exon_select_proxy<-dataTableProxy("exon_table", session = session)
+  observeEvent(input$deselect_exon, {
+    selectRows(exon_select_proxy, NULL)
   })
   
   output$exon_exp<-renderPlotly({
-    nointron<-txdf_exon()[txdf_exon()$class=="exon",]
+    nointron<-txdf_collapsed()[txdf_collapsed()$class=="exon",]
     exons<-nointron$exonname[input$exon_table_rows_selected]
-    if(!is.null(gene_id()) && length(exons)>0){
-      plot_data<-expression_data()$exon[(expression_data()$exon$exon_id %in% exons), ]
-      
-      plot_ly(data = plot_data,
-              x=~tissue, y=~value, 
-              color=~exon_id, type = "box", source = "exon_boxplot")%>%
-        layout(boxmode = "group", xaxis=list(title="Tissue"), 
-               yaxis=list(title="Read Count"))
-    } else {
+    if(!is.null(gene_id())){
+      if (length(exons)>0){
+        closeAlert(session, "exon_alert_control")
+        plot_data<-expression_data()$exon[(expression_data()$exon$exon_id %in% exons), ]
+        plot_ly(data = plot_data,
+                x=~tissue, y=~value, 
+                color=~exon_id, type = "box", source = "exon_boxplot")%>%
+          layout(boxmode = "group", xaxis=list(title="Tissue"), 
+                 yaxis=list(title="Read Count"))
+      } else {
+        createAlert(session, "exon_alert", "exon_alert_control", title = "",
+                    content = "Select exons on the left to see their expression", append = FALSE)
+      }
+    }else {
       NULL
     }
   })
@@ -278,7 +301,7 @@ genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
   output$gene_model_collapsed<-renderPlot({
     if(!is.null(gene_id())){
       select<-input$exon_table_rows_selected
-      p<-plot_exons(tx_df= txdf_exon(), select=select)
+      p<-plot_exons(tx_df= txdf_collapsed(), select=select)
       p
     } else {
       NULL
@@ -300,23 +323,40 @@ genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
     datatable(dat)
   })
   
+  junc_select_proxy<-dataTableProxy("junc_table", session = session)
+  observeEvent(input$deselect_junc, {
+    selectRows(junc_select_proxy, NULL)
+  })
+  
+  
   output$junc_exp<-renderPlotly({
+    junctions<-unique(expression_data()$junction[,c("junction_id", "start", "end")])
+    selected<-junctions$junction_id[input$junc_table_rows_selected]
     if(draw_junction()){
-      plot_ly(data = expression_data()$junction, x=~tissue, y=~value, 
-              color=~junction_id, type = "box", source = "junction_boxplot")%>%
-        layout(boxmode = "group", xaxis=list(title="Tissue"), 
-               yaxis=list(title="Read Count"))
-    } else {
+      if (length(selected)>0){
+        closeAlert(session, "junction_alert_control")
+        plot_data<-expression_data()$junction[(expression_data()$junction$junction_id %in% selected), ]
+        plot_ly(data = plot_data,
+                x=~tissue, y=~value, 
+                color=~junction_id, type = "box", source = "junction_boxplot")%>%
+          layout(boxmode = "group", xaxis=list(title="Tissue"), 
+                 yaxis=list(title="Read Count"))
+      } else {
+        createAlert(session, "junc_alert", "junction_alert_control", title = "",
+                    content = "Select junction on the left to see their expression", append = FALSE)
+      }
+    }else {
       toastr_warning("There is no junction data associated with this gene")
     }
   })
+
   
   #need to change the highlighting mode
   output$junc_gene_model<-renderPlot({
     if(draw_junction()) {
       junc_data<-expression_data()$junction
       select<-input$junc_table_rows_selected
-      p<-plot_junctions(junc_exp=junc_data, tx_df= txdf_junction(), select=select)
+      p<-plot_junctions(junc_exp=junc_data, tx_df= txdf_collapsed(), select=select)
       p
     } else {
       NULL
