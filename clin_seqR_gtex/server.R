@@ -77,7 +77,7 @@ server<-function(input, output, session){
         actionButton("deselect", label = "Deselect")
       )
     } else if (input$gtex_selection_type=="Enter Text"){
-      textAreaInput("gtex_text", label = "Enter genes", 
+      textAreaInput("gtex_text", label = "Enter genes", resize = 'vertical',
                     placeholder = "Enter Ensembl IDs here one per line. Max 20")
     } else {
       query<-"select distinct(gene_panels.panelname) from annotation.gene_panels"
@@ -101,15 +101,15 @@ server<-function(input, output, session){
       query<-paste("select * from annotation.median_expression where geneid in (", genes, ")")
       genes<-dbGetQuery(conn, query)
     } else if (input$gtex_selection_type == "Enter Text"){
-      typed<-unlist(strsplit(input$gtex_text, "\n"))
-      found<-which(gene_table[,1] %in% typed)
-      gen<-paste(paste0("'", found, "'"), collapse=",")
-      query<-paste("select * from annotation.median_expression where geneid in (", found, ")")
-      genes<-dbGetQuery(conn, query)
-      not_found<-typed[!(typed %in% genes[,1])]
+      typed<-unlist(strsplit(tm::stripWhitespace(input$gtex_text), " "))
+      found<-which(gene_table$geneid %in% typed)
+      not_found<-typed[!(typed %in% gene_table$geneid)]
       if(length(not_found)>0){
         toastr_warning(message = paste(not_found, "not in the gene list\n"))
       }
+      gen<-paste(paste0("'", gene_table$geneid[found], "'"), collapse=",")
+      query<-paste0("select * from annotation.median_expression where geneid in (", gen, ")")
+      genes<-dbGetQuery(conn, query)
     } else {
       query<-"select genesymbol from annotation.gene_panels where panelname = ?panel"
       panel<-gsub(" ", "_", input$gene_panel_selection)
