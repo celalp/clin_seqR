@@ -42,49 +42,53 @@ ui<-navbarPage("GTEx Module", inverse = T, theme = shinytheme("cerulean"),
                                          uiOutput("tissue_select_ui"),
                                          bsModal("sample_filter_modal", title = "Filter GTEx Data", 
                                                  trigger = "filter_gtex_data", size = "large", 
-                                                 filter_modal_ui("gtex_filter")),
-                                         actionButton("select_genes_bttn", label = "Display Median Expression"),
-                                         br(),
-                                         actionButton("filter_gtex_data", label = "Filter Data"),
-                                         br(),
-                                         actionButton("get_gtex_dbs", label = "Get Detailed Data")
-                            ), 
-                            mainPanel(
-                              useToastr(),
-                              fluidRow(
-                                tagList(
-                                  #this does not display properly
-                                tags$h3("Median Expression"),
-                                plotlyOutput("tpm_heat", height = "600px")
-                                )
-                              ), 
-                              column(width=2,
-                                     br(),
-                                     radioGroupButtons("gene_tpm_reads", label = "TPM or read count?", 
-                                                       choices = c("TPM", "Read Count"), 
-                                                       direction = "vertical")
-                              ),
-                              column(width=10,
-                                     tags$h3("Gene Expression Distribution"),
-                                     #bsAlert("gene_exp_alert"),
-                                     withSpinner(
-                                       plotlyOutput("gene_exp"), color = '#454545'
-                                     )
-                              ), 
-                              tags$h3("Isoform/Exon/Junction Expression"),
-                              tagList(
-                                #bsAlert("genevis_alert"),
-                                uiOutput("title"),
-                                genevis_ui("gtex_plot")
-                              )
+                                                 tagList(
+                                                   filter_modal_ui("gtex_filter"),
+                                                   actionButton("apply_filters", "Apply Filters")
+                                                 )),
+                                                 actionButton("select_genes_bttn", label = "Display Median Expression"),
+                                                 br(),
+                                                 actionButton("filter_gtex_data", label = "Filter Data"),
+                                                 br(),
+                                                 actionButton("get_gtex_dbs", label = "Get Detailed Data")
+                                         ), 
+                                         mainPanel(
+                                           useToastr(),
+                                           fluidRow(
+                                             tagList(
+                                               #this does not display properly
+                                               tags$h3("Median Expression"),
+                                               plotlyOutput("tpm_heat", height = "600px")
+                                             )
+                                           ), 
+                                           column(width=2,
+                                                  br(),
+                                                  radioGroupButtons("gene_tpm_reads", label = "TPM or read count?", 
+                                                                    choices = c("TPM", "Read Count"), 
+                                                                    direction = "vertical")
+                                           ),
+                                           column(width=10,
+                                                  tags$h3("Gene Expression Distribution"),
+                                                  #bsAlert("gene_exp_alert"),
+                                                  withSpinner(
+                                                    plotlyOutput("gene_exp"), color = '#454545'
+                                                  )
+                                           ), 
+                                           tags$h3("Isoform/Exon/Junction Expression"),
+                                           tagList(
+                                             #bsAlert("genevis_alert"),
+                                             uiOutput("title"),
+                                             genevis_ui("gtex_plot")
+                                           )
+                                         )
                             )
                           )
-                        )
-                        
-               ),
-               tags$br(),
-               tags$br(),
-               tags$br()
-)
-
-
+                          
+                        ),
+                        tags$br(),
+                        tags$br(),
+                        tags$br()
+               )
+               
+               
+               

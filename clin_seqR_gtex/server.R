@@ -55,10 +55,11 @@ server<-function(input, output, session){
   source("../utils/getdata.R")
   
   output$tissue_select_ui<-renderUI({
-    query="select column_name from information_schema.columns where table_schema='annotation' and table_name='median_expression';"
-    query=sqlInterpolate(conn, query)
-    choices=dbGetQuery(conn, query)[-c(1:3),]
-    choices=unlist(gsub("\\.", " ", choices))
+    query<-"select distinct(smtsd) from samples.samples;"
+    query<-sqlInterpolate(conn, query)
+    choices<-dbGetQuery(conn, query)[,1]
+    choices<-unlist(gsub("_", " ", choices))
+    choices<-choices[order(choices)]
     pickerInput("selected_tissues", label = "Select Tissues",
                 choices = choices, 
                 options=list(`max-options`=10, 
@@ -157,7 +158,7 @@ server<-function(input, output, session){
   filtered_samples<-callModule(module = filter_modal_server, id="gtex_filter", 
                                tissues=tissues, conn=conn)
   
-  genes_data<-eventReactive(c(input$get_gtex_dbs,input$gene_tpm_reads), {
+  genes_data<-eventReactive(c(input$get_gtex_dbs,input$gene_tpm_reads, input$apply_filters), {
     if(length(input$selected_tissues)==0){
       genes_data<-NULL
     } else {
