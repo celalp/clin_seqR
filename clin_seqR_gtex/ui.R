@@ -5,7 +5,9 @@
 
 # Alper Celik
 
-
+#TODO add bsalerts to all tabs including the isoform one and remove corresponding toastr alerts
+#TODO same for the filter data ui
+#TODO collapsible gene expression and isoform module boxes to be expanded with some thing (actionlink?)
 
 suppressPackageStartupMessages(library(shiny))
 suppressPackageStartupMessages(library(plotly))
@@ -23,8 +25,10 @@ suppressPackageStartupMessages(library(shinythemes))
 
 source("../modules/geneviz.R")
 source("../modules/sample_subject_filter.R")
+source("../utils/getdata.R")
 
-ui<-navbarPage("GTEx Module", inverse = T, theme = shinytheme("cerulean"),
+ui<-navbarPageWithInputs("GTEx Module", inverse = F, theme = shinytheme("cerulean"), 
+                         inputs = actionButton("login_modal", "login", style="margin:0.5%"),
                tabPanel("Explore GTEx Data", 
                         fluidRow(
                           sidebarLayout(
@@ -46,49 +50,45 @@ ui<-navbarPage("GTEx Module", inverse = T, theme = shinytheme("cerulean"),
                                                    filter_modal_ui("gtex_filter"),
                                                    actionButton("apply_filters", "Apply Filters")
                                                  )),
-                                                 actionButton("select_genes_bttn", label = "Display Median Expression"),
-                                                 br(),
-                                                 actionButton("filter_gtex_data", label = "Filter Data"),
-                                                 br(),
-                                                 actionButton("get_gtex_dbs", label = "Get Detailed Data")
-                                         ), 
-                                         mainPanel(
-                                           useToastr(),
-                                           fluidRow(
-                                             tagList(
-                                               #this does not display properly
-                                               tags$h3("Median Expression"),
-                                               plotlyOutput("tpm_heat", height = "600px")
-                                             )
-                                           ), 
-                                           column(width=2,
-                                                  br(),
-                                                  radioGroupButtons("gene_tpm_reads", label = "TPM or read count?", 
-                                                                    choices = c("TPM", "Read Count"), 
-                                                                    direction = "vertical")
-                                           ),
-                                           column(width=10,
-                                                  tags$h3("Gene Expression Distribution"),
-                                                  #bsAlert("gene_exp_alert"),
-                                                  withSpinner(
-                                                    plotlyOutput("gene_exp"), color = '#454545'
-                                                  )
-                                           ), 
-                                           tags$h3("Isoform/Exon/Junction Expression"),
-                                           tagList(
-                                             #bsAlert("genevis_alert"),
-                                             uiOutput("title"),
-                                             genevis_ui("gtex_plot")
-                                           )
-                                         )
+                                         actionButton("filter_gtex_data", label = "Filter Data"),
+                                         br(),
+                                         actionButton("get_gtex_dbs", label = "Get Detailed Data")
+                            ), 
+                            mainPanel(
+                              useToastr(),
+                              fluidRow(
+                                tagList(
+                                  #this does not display properly
+                                  tags$h3("Median Expression"),
+                                  bsAlert("genes_alert_heat"),
+                                  plotlyOutput("tpm_heat", height = "600px")
+                                )
+                              ), 
+                              column(width=2,
+                                     br(),
+                                     radioGroupButtons("gene_tpm_reads", label = "TPM or read count?", 
+                                                       choices = c("TPM", "Read Count"), 
+                                                       direction = "vertical")
+                              ),
+                              column(width=10,
+                                     tags$h3("Gene Expression Distribution"),
+                                     bsAlert("genes_alert_box"),
+                                     withSpinner(
+                                       plotlyOutput("gene_exp"), color = '#454545'
+                                     )
+                              ), 
+                              tags$h3("Isoform/Exon/Junction Expression"),
+                              tagList(
+                                uiOutput("title"),
+                                genevis_ui("gtex_plot")
+                              )
                             )
                           )
-                          
-                        ),
-                        tags$br(),
-                        tags$br(),
-                        tags$br()
-               )
-               
-               
-               
+                        )
+               ),
+               tabPanel("Sample Expression"),
+               tabPanel("Sample Variants"), 
+               tabPanel("Admin Console")
+)
+
+

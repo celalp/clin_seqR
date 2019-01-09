@@ -1,31 +1,3 @@
-########## FUNCTIONS ###########
-
-get_samples_subjects<-function(conn, tissues){
-  if(!is.null(tissues)){
-    tissues<-gsub(" ", "_", tissues)
-    tissue_select<-paste0("'", tissues, sep = "'")
-    tissue_select<-paste(tissue_select, collapse = ",")
-    query<-paste0("select * from samples.samples where smtsd in (", tissue_select, ")")
-    samples_subjects<-dbGetQuery(conn, query)
-    samples_subjects$sex<-ifelse(samples_subjects$sex==1, "Male", "Female")
-    samples_subjects$dthhrdy<-as.character(samples_subjects$dthhrdy)
-    samples_subjects$dthhrdy<-gsub("0", "Ventilator Case", samples_subjects$dthhrdy)
-    samples_subjects$dthhrdy<-gsub("1", "Fast and Violent", samples_subjects$dthhrdy)
-    samples_subjects$dthhrdy<-gsub("2", "Fast", samples_subjects$dthhrdy)
-    samples_subjects$dthhrdy<-gsub("3", "Intermediate", samples_subjects$dthhrdy)
-    samples_subjects$dthhrdy<-gsub("4", "Slow", samples_subjects$dthhrdy)
-    samples_subjects$dthhrdy[which(is.na(samples_subjects$dthhrdy))]<-"Unavailable"
-    return(samples_subjects)
-  } else {
-    NULL
-  }
-}
-
-get_common<-function(samples_subjects){
-  each_tissue<-split(samples_subjects[,c("smtsd", "subjid")], as.factor(samples_subjects$smtsd))
-  common<-plyr::join_all(each_tissue, by="subjid", type="inner")$subjid
-}
-
 
 ########## MODULE ###########
 

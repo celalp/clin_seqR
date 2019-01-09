@@ -10,11 +10,6 @@
 
 server<-function(input, output, session){
   
-  library(optparse)
-  option_list <- list( 
-    make_option(c("-c", "--credentials" , action="store", default=NULL,
-                  help="Print extra output [default]")))
-  
   #credentials<-unlist(strsplit(args$credentials, split = ":"))
   credentials<-c("alper", "pass")
   conn<-dbConnect(drv = RPostgreSQL::PostgreSQL(), host="localhost", 
@@ -23,7 +18,7 @@ server<-function(input, output, session){
   
   toastr_info(message = "loading dependencies please wait...")
   
-  query<-"select geneid,genesymbol  from annotation.median_expression"
+  query<-"select geneid,genesymbol from annotation.median_expression"
   query<-sqlInterpolate(conn, query)
   gene_table<-dbGetQuery(conn, query)
   
@@ -44,7 +39,6 @@ server<-function(input, output, session){
   suppressPackageStartupMessages(library(tm))
   suppressPackageStartupMessages(library(data.table))
   suppressPackageStartupMessages(library(shinyBS))
-  suppressPackageStartupMessages(library(purrr))
   
   options(warn=-1)
   
@@ -53,6 +47,10 @@ server<-function(input, output, session){
   source("../modules/geneviz.R")
   source("../modules/sample_subject_filter.R")
   source("../utils/getdata.R")
+  
+  #####################################################
+  ########### gtex tab server #########################
+  #####################################################
   
   output$tissue_select_ui<-renderUI({
     query<-"select distinct(smtsd) from samples.samples;"
@@ -121,10 +119,11 @@ server<-function(input, output, session){
       genes<-dbGetQuery(conn, query)
     }
     if(nrow(genes)>50 && input$gtex_selection_type!="Select Gene Panel"){
-      toastr_error("Too many genes selected limit 50")
+      createAlert(session, "genes_alert_heat", "genes_alert_heat_control", title = "",
+                  content = "Too many genes selected limit 50",style = "warning", 
+                  append = FALSE)
       return(NULL)
     } else if (nrow(genes)==0){
-      toastr_error("No genes selected")
       return(NULL)
     } else {
       df<-list(genes=genes)
@@ -134,6 +133,7 @@ server<-function(input, output, session){
   
   output$tpm_heat<-renderPlotly({
     if(!(is.null(genes_df()))){
+      closeAlert(session, "genes_alert_heat_control")
       forheat<-genes_df()$genes
       tissues<-colnames(forheat)[-c(1:3)]
       genes<-forheat$genesymbol
@@ -149,7 +149,9 @@ server<-function(input, output, session){
         layout(xaxis=list(title="", dtick=1), 
                yaxis=list(title="", dtick=1))
     } else {
-      toastr_error("Please select some genes to display their median expression values")
+      createAlert(session, "genes_alert_heat", "genes_alert_heat_control", title = "",
+                  content = "No genes selected please select genes or gene panels from the panel on the left",style = "warning", 
+                  append = FALSE)
     }
   })
   
@@ -182,16 +184,20 @@ server<-function(input, output, session){
   
   output$gene_exp<-renderPlotly({
     if(is.null(genes_data())){
-      toastr_warning("Please select tissues to see their expression patterns")
+      createAlert(session, "genes_alert_box", "genes_alert_box_control", title = "",
+                  content = "No genes selected please select genes or gene panels from the panel on the left",style = "warning", 
+                  append = FALSE)
       NULL
     } else {
-      toastr_info("click on a boxplot to see Isoform, Exon and Junction data")
+      closeAlert(session, "genes_alert_box_control")
+      createAlert(session, "genes_alert_box", "genes_alert_box_control", title = "",
+                  content = "Click on the boxplot to see detailed gene expression",
+                  style = "info", append = FALSE)
       plot_ly(data = genes_data()$genes_data, x=~tissue, y=~value, 
               color=~gene_name, type = "box", source = "gene_boxplot")%>%
         layout(boxmode = "group", xaxis=list(title="Tissue"), 
                yaxis=list(title=input$gene_tpm_reads)
         )
-     
     }
   })
   
@@ -224,22 +230,32 @@ server<-function(input, output, session){
       NULL
     }
   })
-  
-  clicked_gene<-isolate({
-    clicked_gene
-  })
-  
   callModule(module = genevis, id = "gtex_plot", 
              tissues=tissues, samples=filtered_samples,
              conn=conn, gene_id=clicked_gene)
   
+
+  #####################################################
+  ########### sample expression #######################
+  #####################################################
+  
+  
+  #####################################################
+  ########### sample variants #########################
+  #####################################################
+  
+  
+  #####################################################
+  ############# admin console #########################
+  #####################################################
+
   
   
   session$onSessionEnded(
     function(){
       dbDisconnect(conn)
     }
-  )
+  )  
 }
 
 
