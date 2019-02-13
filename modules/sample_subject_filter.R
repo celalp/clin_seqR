@@ -4,7 +4,7 @@
 filter_modal_ui<-function(id){
   ns<-NS(id)
   fluidRow(
-    column(width = 4,
+    box(width = 4,
            tabsetPanel(
              tabPanel(title = "Subject Filters",
                       tagList(
@@ -43,7 +43,7 @@ filter_modal_ui<-function(id){
              )
            )
     ),
-    column(width = 8, 
+    box(width = 8, 
            tagList(
              tags$h4("Sex Distribution"),
              plotlyOutput(ns("sex_dist")), 

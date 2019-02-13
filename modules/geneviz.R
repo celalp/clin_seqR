@@ -1,9 +1,3 @@
-########## FUNCTIONS ###########
-
-
-
-
-########## MODULE ###########
 
 genevis_ui<-function(id){
   ns<-NS(id)
@@ -56,7 +50,7 @@ genevis_ui<-function(id){
   )
 }
 
-genevis<-function(input, output, session, datadir, tissues, samples, gene_id,
+genevis<-function(input, output, session, tissues, samples, gene_id,
                   conn){ # this needs data as well
   
   txdf_full<-reactive({

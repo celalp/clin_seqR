@@ -10,17 +10,7 @@
 
 server<-function(input, output, session){
   
-  #credentials<-unlist(strsplit(args$credentials, split = ":"))
-  credentials<-c("alper", "pass")
-  conn<-dbConnect(drv = RPostgreSQL::PostgreSQL(), host="localhost", 
-                  dbname="gtex",
-                  user=credentials[1], password=credentials[2])
-  
   toastr_info(message = "loading dependencies please wait...")
-  
-  query<-"select geneid,genesymbol from annotation.median_expression"
-  query<-sqlInterpolate(conn, query)
-  gene_table<-dbGetQuery(conn, query)
   
   suppressPackageStartupMessages(library(shiny))
   suppressPackageStartupMessages(library(plotly))
@@ -44,9 +34,39 @@ server<-function(input, output, session){
   
   toastr_info(message = "gathering resources...")
   
+  login<-F
+  
+  login_modal<-function(login){
+    modalDialog(title = "Login to database",
+    textInput(inputId = "username", label = "Username"),
+    passwordInput(inputId = "password", label = "Password"),
+    actionButton(inputId = "modal_login", label = "Login", icon=icon("user"))
+    )
+  }
+  
+  observeEvent(input$login_button, {
+    showModal(login_modal())
+  })
+  
+  #observeEvent()
+  
   source("../modules/geneviz.R")
   source("../modules/sample_subject_filter.R")
   source("../utils/getdata.R")
+  
+  #login<-eventReactive()
+  # will create a new user with select priviliges to specific schemas to login here
+  # other tabs will be username/password specific
+  #credentials<-c("gtexuser", "gtexuserforclinseqr")
+  credentials<-c("alper", "pass")
+  gtex<-dbConnect(drv = RPostgreSQL::PostgreSQL(), host="localhost", 
+                  dbname="gtex",
+                  user=credentials[1], password=credentials[2])
+  
+  query<-"select geneid,genesymbol from annotation.median_expression"
+  query<-sqlInterpolate(gtex, query)
+  gene_table<-dbGetQuery(gtex, query)
+  
   
   #####################################################
   ########### gtex tab server #########################
@@ -54,8 +74,8 @@ server<-function(input, output, session){
   
   output$tissue_select_ui<-renderUI({
     query<-"select distinct(smtsd) from samples.samples;"
-    query<-sqlInterpolate(conn, query)
-    choices<-dbGetQuery(conn, query)[,1]
+    query<-sqlInterpolate(gtex, query)
+    choices<-dbGetQuery(gtex, query)[,1]
     choices<-unlist(gsub("_", " ", choices))
     choices<-choices[order(choices)]
     pickerInput("selected_tissues", label = "Select Tissues",
@@ -80,8 +100,8 @@ server<-function(input, output, session){
                     placeholder = "Enter Ensembl IDs here one per line. Max 20")
     } else {
       query<-"select distinct(gene_panels.panelname) from annotation.gene_panels"
-      query<-sqlInterpolate(conn, query)
-      panels<-dbGetQuery(conn, query)
+      query<-sqlInterpolate(gtex, query)
+      panels<-dbGetQuery(gtex, query)
       panels<-gsub("_", " ", panels$panelname)
       pickerInput("gene_panel_selection", "Select Gene Panel", multiple = F, 
                   choices = panels)
@@ -98,7 +118,7 @@ server<-function(input, output, session){
       genes<-gene_table$geneid[input$selection_table_rows_selected]
       genes<-paste(paste0("'", genes, "'"), collapse=",")
       query<-paste("select * from annotation.median_expression where geneid in (", genes, ")")
-      genes<-dbGetQuery(conn, query)
+      genes<-dbGetQuery(gtex, query)
     } else if (input$gtex_selection_type == "Enter Text"){
       typed<-unlist(strsplit(tm::stripWhitespace(input$gtex_text), " "))
       found<-which(gene_table$geneid %in% typed)
@@ -108,15 +128,15 @@ server<-function(input, output, session){
       }
       gen<-paste(paste0("'", gene_table$geneid[found], "'"), collapse=",")
       query<-paste0("select * from annotation.median_expression where geneid in (", gen, ")")
-      genes<-dbGetQuery(conn, query)
+      genes<-dbGetQuery(gtex, query)
     } else {
       query<-"select genesymbol from annotation.gene_panels where panelname = ?panel"
       panel<-gsub(" ", "_", input$gene_panel_selection)
-      query<-sqlInterpolate(conn, query, panel=panel)
-      panel_genes<-unlist(dbGetQuery(conn, query))
+      query<-sqlInterpolate(gtex, query, panel=panel)
+      panel_genes<-unlist(dbGetQuery(gtex, query))
       panel_genes<-paste("'", panel_genes, "'", sep="", collapse = ",")
       query<- paste("select * from annotation.median_expression where genesymbol in (", panel_genes, ")", sep = "")
-      genes<-dbGetQuery(conn, query)
+      genes<-dbGetQuery(gtex, query)
     }
     if(nrow(genes)>50 && input$gtex_selection_type!="Select Gene Panel"){
       createAlert(session, "genes_alert_heat", "genes_alert_heat_control", title = "",
@@ -158,7 +178,7 @@ server<-function(input, output, session){
   tissues<-reactive({input$selected_tissues})
   
   filtered_samples<-callModule(module = filter_modal_server, id="gtex_filter", 
-                               tissues=tissues, conn=conn)
+                               tissues=tissues, conn=gtex)
   
   genes_data<-eventReactive(c(input$get_gtex_dbs,input$gene_tpm_reads, input$apply_filters), {
     if(length(input$selected_tissues)==0){
@@ -171,7 +191,7 @@ server<-function(input, output, session){
       }
       gene_names<-genes_df()$genes
       tissues<-input$selected_tissues
-      genes_data<-get_expression(conn=conn, 
+      genes_data<-get_expression(conn=gtex, 
                                  gene_id=genes_df()$genes$geneid, 
                                  tissue=input$selected_tissues, 
                                  samples=filtered_samples(),
@@ -232,13 +252,14 @@ server<-function(input, output, session){
   })
   callModule(module = genevis, id = "gtex_plot", 
              tissues=tissues, samples=filtered_samples,
-             conn=conn, gene_id=clicked_gene)
+             conn=gtex, gene_id=clicked_gene)
   
-
+  
   #####################################################
   ########### sample expression #######################
   #####################################################
   
+  #callModule(module=sample_expression, id="sample_expression", login=login)
   
   #####################################################
   ########### sample variants #########################
@@ -248,12 +269,12 @@ server<-function(input, output, session){
   #####################################################
   ############# admin console #########################
   #####################################################
-
+  
   
   
   session$onSessionEnded(
     function(){
-      dbDisconnect(conn)
+      dbDisconnect(gtex)
     }
   )  
 }
