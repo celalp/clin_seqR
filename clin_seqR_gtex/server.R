@@ -21,7 +21,6 @@ server<-function(input, output, session){
   suppressPackageStartupMessages(library(shinytoastr))
   suppressPackageStartupMessages(library(shinyWidgets))
   suppressPackageStartupMessages(library(shinycssloaders))
-  suppressPackageStartupMessages(library(shinytoastr))
   suppressPackageStartupMessages(library(shinyjs))
   suppressPackageStartupMessages(library(DBI))
   suppressPackageStartupMessages(library(reshape2))

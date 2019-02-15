@@ -11,7 +11,6 @@ suppressPackageStartupMessages(library(DT))
 suppressPackageStartupMessages(library(shinytoastr))
 suppressPackageStartupMessages(library(shinyWidgets))
 suppressPackageStartupMessages(library(shinycssloaders))
-suppressPackageStartupMessages(library(shinytoastr))
 suppressPackageStartupMessages(library(shinyjs))
 suppressPackageStartupMessages(library(DBI))
 suppressPackageStartupMessages(library(viridis))
@@ -40,6 +39,7 @@ ui<-dashboardPage(
   ), 
   dashboardBody(
     shinyDashboardThemes(theme = "grey_light"),
+    useToastr(),
     tabItems(
       tabItem(tabName = "gtex",
         fluidRow(
