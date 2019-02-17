@@ -1,3 +1,8 @@
 ./data
 ./data/databases
 .Rproj.user
+.DS_Store
+.Rhistory
+.Rproj.user
+Unititled.sql
+.idea
