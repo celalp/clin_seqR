@@ -22,17 +22,19 @@ suppressPackageStartupMessages(library(dashboardthemes))
 suppressPackageStartupMessages(library(shinydashboardPlus))
 
 
+#TODO move login to the right side panel, maybe
+
 source("../modules/geneviz.R")
-source("../modules/sample_subject_filter.R")
 source("../utils/getdata.R")
 source("../modules/gene_select.R")
+source("../modules/tissue_select.R")
 source("../modules/median_heatmap.R")
 
 ui<-dashboardPagePlus(
   dashboardHeaderPlus(title = "ClinSeqR", 
                       left_menu = tagList(
                         dropdownBlock(
-                          id = "loginmeni",
+                          id = "loginmenu",
                           title = "Login",
                           icon = icon("user"),
                           tagList(
@@ -58,16 +60,21 @@ ui<-dashboardPagePlus(
     useToastr(), 
     useShinyjs(), 
     tabItems(
-      tabItem(tabName = "gtex",
+      tabItem(tabName = "gtex", #TODO need to add bs alerts to median expression, gene expression dist, and genevis
               fluidRow(
                 box(title = "Select Gene(s)", width = 4, 
                     gene_select_ui("gene_select")), 
-                box(title = "Median Expression", width = 8, 
-                    verbatimTextOutput("tissue_select_check"))
-                #median_heatmap_ui("median_heatmap"))
+                box(title = "Select tissue(s)", width = 8,
+                    tissue_select_ui("tissue_select"))
+              ), 
+              fluidRow(
+                box(title = "Median Expression", width = 12, collapsible = T, 
+                median_heatmap_ui("median_heatmap"))
               ),
               fluidRow(
-                box(title = "Gene Expression Distribution", width = 12),
+                box(title = "Gene Expression Distribution", width = 12, collapsible = T, 
+                    gene_expression_ui("gene_expression")
+                    ),
                 box(title = "Isoform/Exon/Junction Expression",  width = 12, collapsible = T, 
                     collapsed = F,
                     tagList(
@@ -81,5 +88,7 @@ ui<-dashboardPagePlus(
     tabItem(tabName = "expression"), 
     tabItem(tabName = "variants")
   )
+  
+  
   
 )

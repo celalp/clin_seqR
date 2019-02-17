@@ -4,7 +4,7 @@ server<-function(input, output, session){
   
   source("../modules/gene_select.R")
   source("../modules/geneviz.R")
-  source("../modules/sample_subject_filter.R")
+  source("../modules/tissue_select.R")
   source("../utils/getdata.R")
   
   toastr_info(message = "loading dependencies please wait...")
@@ -57,19 +57,21 @@ server<-function(input, output, session){
     login_status$login
   })
   
+  #this returns a data frame of gene
+  gene_selection<-callModule(module=gene_select_server, id="gene_select", conn=gtex, login=login_status)
   
-  gene_tissue_selection<-callModule(module=gene_select, id="gene_select", conn=gtex, login=login_status)
+  #TODO return tissues and samples
+  tissue_selection<-callModule(module=tissue_select, id="tissue_select", conn=gtex, login=login_status)
   
-  output$tissue_select_check<-renderText({
-    unlist(gene_tissue_selection)
-  })
+  callModule(module=median_heatmap, id="median_heatmap", conn=gtex, login=login_status, genesymbol=gene_selection)
   
-  #callModule(median_heatmap, gene_tissue_selection$genes_df)
+  clicked_gene<-callModule(gene_expression, id="gene_expression", conn=gtex, login=login_status, 
+                           genes=gene_selection, tissues_samples=tissue_selection)
   
   #TODO add the gene title in the module
-  callModule(module = genevis, id = "gtex_plot", 
-             tissues=tissues, samples=filtered_samples,
-             conn=gtex, gene_id=clicked_gene)
+  #callModule(module = genevis, id = "gtex_plot", 
+  #           tissues=tissues, samples=filtered_samples,
+  #           conn=gtex, gene_id=clicked_gene)
   
   session$onSessionEnded(
     function(){
