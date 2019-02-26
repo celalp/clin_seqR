@@ -74,40 +74,39 @@ tissue_select<-function(input, output, session, conn, login){
                      )
                    )
           )
-        ),
-        actionButton(session$ns("apply_filter"), label = "Apply Filters")
+        )
+       # actionButton(session$ns("apply_filter"), label = "Apply Filters")
       )
     } else {
       NULL
     }
   })
   
-  samp_sub<-eventReactive(input$apply_filter, {
-    samp_sub<-get_samples_subjects(conn = conn, tissues = input$selected_tissues)
-    if(!is.null(samp_sub)){
+  samp_sub<-reactive({
+    samp_sub_df<-get_samples_subjects(conn = conn, tissues = input$selected_tissues)
+    if(!is.null(samp_sub_df)){
       if(!is.null(input$sex_filter)){
-        samp_sub<- samp_sub %>%
+        samp_sub_df<- samp_sub_df %>%
           filter(sex %in% c(input$sex_filter))
       }
       if(!is.null(input$age_filter)){
-        samp_sub<- samp_sub %>%
+        samp_sub_df<- samp_sub_df %>%
           filter(age %in% c(input$age_filter))
       }
       if(!is.null(input$death_filter)){
-        samp_sub<- samp_sub %>%
+        samp_sub_df<- samp_sub_df %>%
           filter(dthhrdy %in% c(input$death_filter))
       }
       if(input$all_or_common == "All"){
         NULL
       } else {
-        common_subj<-get_common(samp_sub)
-        samp_sub<- samp_sub %>%
+        common_subj<-get_common(samp_sub_df)
+        samp_sub_df<- samp_sub_df %>%
           filter(subjid %in% common_subj)
       }
       
       #TODO add sample filters here
-      
-      return(samp_sub)
+      return(samp_sub_df)
     } else {
       NULL
     }
@@ -150,7 +149,6 @@ tissue_select<-function(input, output, session, conn, login){
     }
   })
   
-  return(reactive({list(tissues=input$selected_tissues, 
-                        samples=samp_sub())}))
+  return(reactive({samp_sub()}))
 }
 

@@ -25,7 +25,6 @@ genevis_ui<-function(id){
                ),
                column(width=7, offset = 1, 
                       tags$br(),
-                      bsAlert("exon_alert"),
                       plotlyOutput(ns("exon_exp"))
                )),
              tags$hr(),
@@ -40,7 +39,6 @@ genevis_ui<-function(id){
                ),
                column(width=7, offset = 1, 
                       tags$br(),
-                      bsAlert("junc_alert"),
                       plotlyOutput(ns("junc_exp"))
                )
              ),
@@ -50,7 +48,7 @@ genevis_ui<-function(id){
   )
 }
 
-genevis<-function(input, output, session, tissues, samples, gene_id,
+genevis<-function(input, output, session, tissues_samples, gene_id,
                   conn){ # this needs data as well
   
   txdf_full<-reactive({
@@ -72,17 +70,14 @@ genevis<-function(input, output, session, tissues, samples, gene_id,
         iso_tbl<-"transcript_reads"
       }
       isoform_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
-                                         samples=samples(), tissue=tissues(), 
+                                         tissues_samples=tissues_samples(), 
                                          table=iso_tbl, extra_columns='"transcript_id"')
-      isoform_expression<-do.call("rbind", isoform_expression)
       exon_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
-                                      samples=samples(), tissue=tissues(), 
+                                      tissues_samples=tissues_samples(), 
                                       table="exon_reads", extra_columns='"exon_id"')
-      exon_expression<-do.call("rbind", exon_expression)
       junction_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
-                                          samples=samples(), tissue=tissues(), 
+                                          tissues_samples=tissues_samples(), 
                                           table="junctions", extra_columns=c('"junction_id"', '"start"','"end"'))
-      junction_expression<-do.call("rbind", junction_expression)
       expression_data<-list(isoform=isoform_expression, exon=exon_expression, junction=junction_expression)
     } else {
       expression_data<-list(isoform=NULL, exon=NULL, junction=NULL)
@@ -139,7 +134,6 @@ genevis<-function(input, output, session, tissues, samples, gene_id,
     exons<-nointron$exonname[input$exon_table_rows_selected]
     if(!is.null(gene_id())){
       if (length(exons)>0){
-        closeAlert(session, "exon_alert_control")
         plot_data<-expression_data()$exon[(expression_data()$exon$exon_id %in% exons), ]
         plot_ly(data = plot_data,
                 x=~tissue, y=~value, 
@@ -147,8 +141,7 @@ genevis<-function(input, output, session, tissues, samples, gene_id,
           layout(boxmode = "group", xaxis=list(title="Tissue"), 
                  yaxis=list(title="Read Count"))
       } else {
-        createAlert(session, "exon_alert", "exon_alert_control", title = "",
-                    content = "Select exons on the left to see their expression", append = FALSE)
+        NULL
       }
     }else {
       NULL
@@ -192,7 +185,6 @@ genevis<-function(input, output, session, tissues, samples, gene_id,
     selected<-junctions$junction_id[input$junc_table_rows_selected]
     if(draw_junction()){
       if (length(selected)>0){
-        closeAlert(session, "junction_alert_control")
         plot_data<-expression_data()$junction[(expression_data()$junction$junction_id %in% selected), ]
         plot_ly(data = plot_data,
                 x=~tissue, y=~value, 
@@ -200,11 +192,10 @@ genevis<-function(input, output, session, tissues, samples, gene_id,
           layout(boxmode = "group", xaxis=list(title="Tissue"), 
                  yaxis=list(title="Read Count"))
       } else {
-        createAlert(session, "junc_alert", "junction_alert_control", title = "",
-                    content = "Select junction on the left to see their expression", append = FALSE)
+        NULL
       }
     }else {
-      toastr_warning("There is no junction data associated with this gene")
+      NULL
     }
   })
 

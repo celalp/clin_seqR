@@ -36,15 +36,27 @@ server<-function(input, output, session){
   
   login_status<-reactiveValues(login=F)
   
+  output$login_menu<-renderUI({
+    if(login_status$login){
+      fluidRow(
+        actionButton(inputId = "login_button", label = "Logout", icon=icon("sign-out"))
+      )
+    } else {
+      fluidRow(
+        textInput(inputId = "username", label = "Username"),
+        passwordInput(inputId = "password", label = "Password"),
+        actionButton(inputId = "login_button", label = "Login", icon=icon("sign-in"))
+      )
+    }
+  })
+  
   observeEvent(input$login_button, {
     if(login_status$login){
       login_status$login<-F
       toastr_success("Logout successful")
-      updateActionButton(session, "login_button", label="Login")
     } else {
       if(input$username=="User" & input$password=="pass"){
         toastr_success("Login successful")
-        updateActionButton(session, "login_button", label="Logout")
         login_status$login<-T
       } else {
         toastr_error("Login failed")
@@ -70,7 +82,7 @@ server<-function(input, output, session){
   
   #TODO add the gene title in the module
   #callModule(module = genevis, id = "gtex_plot", 
-  #           tissues=tissues, samples=filtered_samples,
+  #           tissues_samples=tissue_selection,
   #           conn=gtex, gene_id=clicked_gene)
   
   session$onSessionEnded(

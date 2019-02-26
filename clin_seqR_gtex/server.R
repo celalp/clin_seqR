@@ -179,7 +179,7 @@ server<-function(input, output, session){
   filtered_samples<-callModule(module = filter_modal_server, id="gtex_filter", 
                                tissues=tissues, conn=gtex)
   
-  genes_data<-eventReactive(c(input$get_gtex_dbs,input$gene_tpm_reads, input$apply_filters), {
+  genes_data<-reactive({
     if(length(input$selected_tissues)==0){
       genes_data<-NULL
     } else {

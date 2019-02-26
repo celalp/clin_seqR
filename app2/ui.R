@@ -22,26 +22,23 @@ suppressPackageStartupMessages(library(dashboardthemes))
 suppressPackageStartupMessages(library(shinydashboardPlus))
 
 
-#TODO move login to the right side panel, maybe
+#TODO move tissue selection to the gene selection panel 
+#TODO include conditional panels for alerting when selections are not valid
 
 source("../modules/geneviz.R")
 source("../utils/getdata.R")
 source("../modules/gene_select.R")
 source("../modules/tissue_select.R")
 source("../modules/median_heatmap.R")
+source("../modules/gene_expression.R")
 
 ui<-dashboardPagePlus(
   dashboardHeaderPlus(title = "ClinSeqR", 
                       left_menu = tagList(
                         dropdownBlock(
                           id = "loginmenu",
-                          title = "Login",
-                          icon = icon("user"),
-                          tagList(
-                            textInput(inputId = "username", label = "Username"),
-                            passwordInput(inputId = "password", label = "Password"),
-                            actionButton(inputId = "login_button", label = "Login", icon=icon("user"))
-                          ), badgeStatus = NULL
+                          icon = "user",
+                          uiOutput("login_menu"), badgeStatus = NULL
                         )
                       )
   ),
@@ -72,14 +69,14 @@ ui<-dashboardPagePlus(
                 median_heatmap_ui("median_heatmap"))
               ),
               fluidRow(
-                box(title = "Gene Expression Distribution", width = 12, collapsible = T, 
+                box(title = "Gene Expression Distribution", width = 12, collapsible = T,
                     gene_expression_ui("gene_expression")
                     ),
                 box(title = "Isoform/Exon/Junction Expression",  width = 12, collapsible = T, 
                     collapsed = F,
                     tagList(
                       #uiOutput("title"),
-                      genevis_ui("gtex_plot")
+                      #genevis_ui("gtex_plot")
                     )
                 )
               )

@@ -1,59 +1,39 @@
-catchToList <- function(expr) {
-  val <- NULL
-  myWarnings <- NULL
-  wHandler <- function(w) {
-    myWarnings <<- c(myWarnings, w$message)
-  }
-  myError <- NULL
-  eHandler <- function(e) {
-    myError <<- e$message
-    NULL
-  }
-  val <- tryCatch(withCallingHandlers(expr, warning = wHandler), error = eHandler)
-  list(value = val, warnings = myWarnings, error=myError)
-}
-
-navbarPageWithInputs <- function(..., inputs) {
-  navbar <- navbarPage(...)
-  form <- tags$form(style = "navbar-form", inputs )
-  navbar[[3]][[1]]$children[[1]] <- htmltools::tagAppendChild(
-    navbar[[3]][[1]]$children[[1]], form)
-  navbar
-}
 
 # so far this works for gene and isoform
-get_expression<-function(conn, gene_id, tissue, samples, table, extra_columns=NULL){
-  tiss_samples<-tolower(samples[[tissue]]$sampid)
-  tiss_samples<-paste('"', tiss_samples, '"', sep = "")
-  columns<-c("gene_id", tiss_samples)
-  if(!is.null(extra_columns)){
-    columns<-c(extra_columns, columns)
-  }
-  columns<-paste0(columns, collapse = ",")
+get_expression<-function(conn, gene_id, tissues_samples, table, extra_columns=NULL){
+  tissues<-names(tissues_samples)
   expressions<-list()
-  #for(tissue in tissues){
-  tissue<-gsub(" ", "_", tissue)
-  table<-paste(tissue, table, sep=".")
-  if(length(gene_id)>1){
-    gene_id<-as.character(gene_id)
-    genes_combined<-paste("'", gene_id, "'", sep="", collapse = ",")
-    query<-paste("select ", columns, " from ", table,  " where gene_id in (", 
-                 genes_combined, ")", sep="")
-  } else {
-    query<-paste0("select ", columns, " from ", table, " where gene_id='", gene_id, "'")
+  for(tiss in tissues){
+    tiss_samples<-tolower(tissues_samples[[tiss]])
+    tiss_samples<-paste('"', tiss_samples, '"', sep = "")
+    columns<-c("gene_id", tiss_samples)
+    if(!is.null(extra_columns)){
+      columns<-c(extra_columns, columns)
+    }
+    columns<-paste0(columns, collapse = ",")
+    tablename<-paste(tiss, table, sep=".")
+    if(length(gene_id)>1){
+      gene_id<-as.character(gene_id)
+      genes_combined<-paste("'", gene_id, "'", sep="", collapse = ",")
+      query<-paste("select ", columns, " from ", tablename,  " where gene_id in (", 
+                   genes_combined, ")", sep="")
+    } else {
+      query<-paste0("select ", columns, " from ", tablename, " where gene_id='", gene_id, "'")
+    }
+    results<-dbGetQuery(conn, query)
+    if(nrow(results)==0){ #this is for junctions
+      results<-NULL
+      expressions[[tiss]]<-results
+    } else {
+      results$tissue<-tiss
+      expressions[[tiss]]<-melt(results)
+    }
   }
-  results<-dbGetQuery(conn, query)
-  if(nrow(results)==0){ #this is for junctions
-    results<-NULL
-    expressions[[tissue]]<-results
-  } else {
-    results$tissue<-tissue
-    expressions[[tissue]]<-melt(results)
-  }
+  expressions<-do.call("rbind", expressions)
   return(expressions)
 }
 
-get_expression<-Vectorize(get_expression, vectorize.args = c("tissue"), SIMPLIFY = T)
+#get_expression<-Vectorize(get_expression, vectorize.args = c("tissue"), SIMPLIFY = T)
 
 # filter functions
 

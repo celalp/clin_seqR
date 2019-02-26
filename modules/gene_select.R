@@ -50,7 +50,7 @@ gene_select_server<-function(input, output, session, conn, login){
         )
       } else if (input$conn_selection_type=="Enter Text"){
         textAreaInput(session$ns("conn_text"), label = "Enter genes", resize = 'vertical',
-                      placeholder = "Enter Ensembl IDs here one per line. Max 20")
+                      placeholder = "Enter Ensembl IDs here one per line")
       } else {
         query<-"select distinct(gene_panels.panelname) from annotation.gene_panels"
         query<-sqlInterpolate(conn, query)
@@ -62,6 +62,11 @@ gene_select_server<-function(input, output, session, conn, login){
     } else {
       NULL
     }
+  })
+  
+  gene_select_proxy<-dataTableProxy("selection_table", session = session)
+  observeEvent(input$deselect, {
+    selectRows(gene_select_proxy, NULL)
   })
   
   genes<-eventReactive(input$get_conn_dbs, {
