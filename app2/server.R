@@ -81,9 +81,7 @@ server<-function(input, output, session){
                            genes=gene_selection, tissues_samples=tissue_selection)
   
   #TODO add the gene title in the module
-  #callModule(module = genevis, id = "gtex_plot", 
-  #           tissues_samples=tissue_selection,
-  #           conn=gtex, gene_id=clicked_gene)
+  callModule(module = genevis, id = "gtex_plot", tissues_samples=tissue_selection, conn=gtex, genes=gene_selection)
   
   session$onSessionEnded(
     function(){

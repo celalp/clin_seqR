@@ -48,8 +48,8 @@ ui<-dashboardPagePlus(
       menuItem("Samples", icon = icon("database"), startExpanded = F,
                menuSubItem("Expression", tabName = "expression", icon=icon("bar-chart")),
                menuSubItem("Variants", tabName = "variants", icon=icon("table"))
-      ) 
-      #menuItem("Admin Console", tabName="admin", icon=icon("search"))
+      ), 
+      menuItem("Account Settings", tabName="account", icon=icon("user"))
     )
   ), 
   dashboardBody(
