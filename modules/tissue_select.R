@@ -149,6 +149,9 @@ tissue_select<-function(input, output, session, conn, login){
     }
   })
   
-  return(reactive({samp_sub()}))
+  return(reactive({
+    tissues_samples<<-get_tissues_samples(samp_sub())
+    return(tissues_samples)
+    }))
 }
 

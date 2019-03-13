@@ -39,7 +39,6 @@ get_expression<-function(conn, gene_id, tissues_samples, table, extra_columns=NU
 
 get_samples_subjects<-function(conn, tissues){
   if(!is.null(tissues)){
-    tissues<-gsub(" ", "_", tissues)
     tissue_select<-paste0("'", tissues, sep = "'")
     tissue_select<-paste(tissue_select, collapse = ",")
     query<-paste0("select * from samples.samples where smtsd in (", tissue_select, ")")
@@ -68,9 +67,9 @@ get_common<-function(samples_subjects){
 get_exon_df<-function(conn, gene_name=NULL, collapsed=F){
   if(!is.null(gene_name)){
     if(collapsed){
-      table<-"annotation.collapsed"
+      table<-"annotation.gtex_collapsed"
     } else {
-      table<-"annotation.full"
+      table<-"annotation.gtex_full"
     }
     query<-paste0("select * from ", table, " where geneid=?gene")
     sql<-sqlInterpolate(conn, query, gene=gene_name)
@@ -207,6 +206,19 @@ plot_junctions<-function(junc_exp, tx_df, select){
   return(p)
 }
 
-
+# trying to be dry need tests for this stuff
+get_tissues_samples<-function(table){
+  samples<-table$sampid
+  tissues<-table$smtsd
+  tissues<-gsub("\\(", " ", tissues)
+  tissues<-gsub("\\)", " ", tissues)
+  tissues<-gsub("-", " ", tissues)
+  tissues<-stripWhitespace(tissues)
+  tissues<-gsub(" $", "", tissues)
+  tissues<-gsub(" ", "_", tissues)
+  tissues<-tolower(tissues)
+  sample_list<-split(samples, as.factor(tissues))
+  return(sample_list)
+}
 
 

@@ -19,7 +19,7 @@ gene_expression_ui<-function(id){
 gene_expression<-function(input, output, session, login, conn, genes, tissues_samples){
   
   output$read_tpm_buttons<-renderUI({
-    if(login$login){
+    if(login$login & length(genes()$geneid>0)){
       radioGroupButtons(session$ns("gene_tpm_reads"), label = "TPM or read count?", 
                         choices = c("TPM", "Read Count"), selected = "TPM",
                         direction = "vertical")
@@ -37,7 +37,6 @@ gene_expression<-function(input, output, session, login, conn, genes, tissues_sa
           #TODO add conditional panel with a value box
           expression_data<-NULL
         } else {
-          sample_list<-split(tissues_samples()$sampid, as.factor(tissues_samples()$smtsd))
           if(input$gene_tpm_reads=="TPM"){
             table="gene_tpm"
           } else {
@@ -45,7 +44,7 @@ gene_expression<-function(input, output, session, login, conn, genes, tissues_sa
           }
           expression_data<-get_expression(conn=conn, 
                                           gene_id=genes()$geneid, 
-                                          tissues_samples=sample_list,
+                                          tissues_samples=tissues_samples(),
                                           table=table, extra_columns="gene_name"
           )
         }
@@ -101,13 +100,11 @@ gene_expression<-function(input, output, session, login, conn, genes, tissues_sa
           tagList(
             br(),
             splitLayout(cellWidths = c("20%", "60%", "20%"),
-                        actionBttn(inputId = session$ns("prev_page"), 
-                                   label=NULL, icon=icon("chevron-left"), 
-                                   style="simple", color="primary"), 
+                        actionLink(inputId = session$ns("prev_page"), 
+                                   label=NULL, icon=icon("chevron-left")), 
                         textOutput(outputId = session$ns("page_number")), 
-                        actionBttn(inputId = session$ns("next_page"), 
-                                   label=NULL, icon=icon("chevron-right"), 
-                                   style="simple", color="primary")
+                        actionLink(inputId = session$ns("next_page"), 
+                                   label=NULL, icon=icon("chevron-right"))
             ))
         }
       })
@@ -121,10 +118,5 @@ gene_expression<-function(input, output, session, login, conn, genes, tissues_sa
     } else {
       NULL
     }
-  })
-  
-  clicked_gene<-reactive({
-    s <- event_data("plotly_click", source = "gene_boxplot")
-    print(s)
   })
 }

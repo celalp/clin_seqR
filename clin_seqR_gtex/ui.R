@@ -11,6 +11,7 @@ suppressPackageStartupMessages(library(DT))
 suppressPackageStartupMessages(library(shinytoastr))
 suppressPackageStartupMessages(library(shinyWidgets))
 suppressPackageStartupMessages(library(shinycssloaders))
+suppressPackageStartupMessages(library(shinytoastr))
 suppressPackageStartupMessages(library(shinyjs))
 suppressPackageStartupMessages(library(DBI))
 suppressPackageStartupMessages(library(viridis))
@@ -18,14 +19,29 @@ suppressPackageStartupMessages(library(shinyBS))
 suppressPackageStartupMessages(library(shinythemes))
 suppressPackageStartupMessages(library(shinydashboard))
 suppressPackageStartupMessages(library(dashboardthemes))
+suppressPackageStartupMessages(library(shinydashboardPlus))
 
+
+#TODO move tissue selection to the gene selection panel 
+#TODO include conditional panels for alerting when selections are not valid
 
 source("../modules/geneviz.R")
-source("../modules/sample_subject_filter.R")
 source("../utils/getdata.R")
+source("../modules/gene_select.R")
+source("../modules/tissue_select.R")
+source("../modules/median_heatmap.R")
+source("../modules/gene_expression.R")
 
-ui<-dashboardPage(
-  dashboardHeader(title = "ClinSeqR"), 
+ui<-dashboardPagePlus(
+  dashboardHeaderPlus(title = "ClinSeqR", 
+                      left_menu = tagList(
+                        dropdownBlock(
+                          id = "loginmenu",
+                          icon = "user", title = "Login/Logout",
+                          uiOutput("login_menu"), badgeStatus = NULL
+                        )
+                      )
+  ),
   dashboardSidebar(#put icons
     sidebarMenu(
       menuItem("Explore GTEx Data", tabName="gtex", icon=icon("dashboard")), 
@@ -33,74 +49,43 @@ ui<-dashboardPage(
                menuSubItem("Expression", tabName = "expression", icon=icon("bar-chart")),
                menuSubItem("Variants", tabName = "variants", icon=icon("table"))
       ), 
-      menuItem("Admin Console", tabName="admin", icon=icon("search"))
-    ),
-    actionButton("login_button", label = "Login", icon=icon("user"))
+      menuItem("Account Settings", tabName="account", icon=icon("user"))
+    )
   ), 
   dashboardBody(
     shinyDashboardThemes(theme = "grey_light"),
-    useToastr(),
+    useToastr(), 
+    useShinyjs(), 
     tabItems(
-      tabItem(tabName = "gtex",
-        fluidRow(
-          box(title = "Select Gene(s)", width = 4,
-              radioGroupButtons(inputId = "gtex_selection_type", 
-                                label = "", 
-                                choices = c("Select From List", "Enter Text", "Select Gene Panel"), 
-                                justified = TRUE, status = "primary",
-                                selected = "Select From List",individual = F, direction = "vertical"),
-              uiOutput("gene_select"), color = '#8D8D8D',
-              br(),
-              uiOutput("tissue_select_ui"),
-              bsModal("sample_filter_modal", title = "Filter GTEx Data", 
-                      trigger = "filter_gtex_data", size = "large", 
-                      tagList(
-                        filter_modal_ui("gtex_filter"),
-                        actionButton("apply_filters", "Apply Filters")
-                      )),
-              actionButton("filter_gtex_data", label = "Filter Data"),
-              br(),
-              actionButton("get_gtex_dbs", label = "Get Detailed Data")
-          ), 
-          box(title = "Median Expression", width = 8, 
-                tagList(
-                  bsAlert("genes_alert_heat"),
-                  plotlyOutput("tpm_heat", height = "600px")
+      tabItem(tabName = "gtex", #TODO need to add bs alerts to median expression, gene expression dist, and genevis
+              fluidRow(
+                box(title = "Select Gene(s)", width = 4, 
+                    gene_select_ui("gene_select")), 
+                box(title = "Select tissue(s)", width = 8,
+                    tissue_select_ui("tissue_select"))
+              ), 
+              fluidRow(
+                box(title = "Median Expression", width = 12, collapsible = T, 
+                median_heatmap_ui("median_heatmap"))
+              ),
+              fluidRow(
+                box(title = "Gene Expression Distribution", width = 12, collapsible = T,
+                    gene_expression_ui("gene_expression")
+                    ),
+                box(title = "Isoform/Exon/Junction Expression",  width = 12, collapsible = T, 
+                    collapsed = F,
+                    tagList(
+                      #uiOutput("title"),
+                      genevis_ui("gtex_plot")
+                    )
                 )
               )
-        ),
-        fluidRow(
-          box(title = "Gene Expression Distribution", width = 12,
-              column(width=2,
-                     br(),
-                     radioGroupButtons("gene_tpm_reads", label = "TPM or read count?", 
-                                       choices = c("TPM", "Read Count"), 
-                                       direction = "vertical")
-              ),
-              column(width=10,
-                     tagList(
-                       bsAlert("genes_alert_box"),
-                       withSpinner(
-                         plotlyOutput("gene_exp"), color = '#454545'
-                       ))
-              )
-          ),
-          box(title = "Isoform/Exon/Junction Expression",  width = 12, collapsible = T, 
-              collapsed = T,
-              tagList(
-                uiOutput("title"),
-                genevis_ui("gtex_plot")
-              )
-          ))
-      ), 
-      tabItem(tabName = "expression"), 
-      
-      tabItem(tabName = "variants"), 
-      tabItem(tabName = "admin")
-    )
+      )
+    ), 
+    tabItem(tabName = "expression"), 
+    tabItem(tabName = "variants")
   )
+  
+  
+  
 )
-    
-    
-    
-    

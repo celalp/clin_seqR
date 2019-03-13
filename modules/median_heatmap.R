@@ -7,9 +7,9 @@ median_heatmap<-function(input, output, session, conn, login, genesymbol){
   
   output$tpm_heat_ui<-renderUI({
     if(login$login){
-      if(!is.null(genesymbol())){
+      if(!is.null(genesymbol()$genesymbol) | length(genesymbol()$genesymbol >0 )){
         genes<-paste("'", genesymbol()$genesymbol, "'", sep="", collapse = ",")
-        query<-paste("select * from annotation.median_expression where genesymbol in (", genes, ")", sep = "")
+        query<-paste("select * from samples.median_expression where genesymbol in (", genes, ")", sep = "")
         query<-sqlInterpolate(conn, query)
         forheat<-dbGetQuery(conn, query)
         tissues<-colnames(forheat)[-c(1:3)]
@@ -31,6 +31,7 @@ median_heatmap<-function(input, output, session, conn, login, genesymbol){
           plotlyOutput(session$ns("median_heatmap"), height = "600px")
         )
       } else {
+        #TODO notification
         NULL
       }
     } else {

@@ -23,7 +23,7 @@ def to_pgres(tissue, datadir, user, pwd, dbname, samples):
     try:
         samples.to_sql('samples', pgres_engine, schema='samples', if_exists='fail', index=False)
         with pgres_engine.connect() as con:
-            con.execute("crate index on samples.samples (sampid)")
+            con.execute("create index on samples.samples (sampid)")
     except:
         log.exception("samples table error")
 
@@ -67,10 +67,9 @@ if __name__=='__main__':
     tissues = pd.read_csv(args.tissue, squeeze=True, header=None)
     tissues = tissues.values.tolist()
 
-    #TODO need to add sample table that also contains subject info, this is not normalized
-
     samples=pd.read_csv(args.sample, header=0, sep="\t")
     samples.rename(columns=lambda x: x.lower(), inplace=True)
+    samples = samples.loc[samples.SMAFRZE =="RNASEQ"]
     subjects=[]
     for sample in samples["sampid"]:
         subjid="GTEX-"+sample.split("-")[1]
@@ -80,7 +79,7 @@ if __name__=='__main__':
     subjects=pd.read_csv(args.subjects, header=0, sep="\t")
     subjects.rename(columns=lambda x: x.lower(), inplace=True)
 
-    samples.join(subjects, on='subjid', how='left')
+    samples=samples.merge(subjects, on='subjid', how='left')
 
     for tissue in tissues:
         to_pgres(tissue, datadir=args.datadir, user=args.username, pwd=args.pwd, dbname=args.dbname, samples=samples)

@@ -1,83 +1,104 @@
 
 genevis_ui<-function(id){
   ns<-NS(id)
-  tabsetPanel( # need to mess with the colors of the tab labels
-    tabPanel("Isoform Expression", value = "gtex_isoform",
-             column(width=2, 
-                    radioGroupButtons(ns("isoform_tpm_reads"), label = "TPM or read count?", 
-                                      choices = c("TPM", "Read Count"), direction = "vertical", 
-                                      selected = "TPM")),
-             column(width=10,
-                    #withSpinner(
-                    tagList(
-                      plotlyOutput(ns("isoform_exp")),
-                      plotOutput(ns("gene_model_exp"))
-                      #  color = '#202020'
-                    )
-             )
-    ),
-    tabPanel("Exon Expression", value = "gtex_exon", 
-             fluidRow(
-               column(width=4,
-                      tags$br(),
-                      dataTableOutput(ns("exon_table")),
-                      actionButton(ns("deselect_exon"), label = "Deselect")
-               ),
-               column(width=7, offset = 1, 
-                      tags$br(),
-                      plotlyOutput(ns("exon_exp"))
-               )),
-             tags$hr(),
-             plotOutput(ns("gene_model_collapsed"))
-    ),
-    tabPanel("Junction Expression", value="gtex_junc", 
-             fluidRow(
-               column(width=4, 
-                      tags$br(), 
-                      dataTableOutput(ns("junc_table")),
-                      actionButton(ns("deselect_junc"), label = "Deselect")
-               ),
-               column(width=7, offset = 1, 
-                      tags$br(),
-                      plotlyOutput(ns("junc_exp"))
+  
+  tagList(
+    uiOutput(ns("gene_picker_ui")),
+    tags$br(),
+    tabsetPanel( # need to mess with the colors of the tab labels
+      tabPanel("Isoform Expression", value = "gtex_isoform",
+               column(width=2, 
+                      uiOutput(ns("selection_ui"))),
+               column(width=10,
+                      tagList(
+                        plotlyOutput(ns("isoform_exp")),
+                        plotOutput(ns("isoform_model"))
+                      )
                )
-             ),
-             tags$hr(),
-             plotOutput(ns("junc_gene_model"))
+      ),
+      tabPanel("Exon Expression", value = "gtex_exon", 
+               fluidRow(
+                 column(width=4,
+                        tags$br(),
+                        dataTableOutput(ns("exon_table")),
+                        actionButton(ns("deselect_exon"), label = "Deselect")
+                 ),
+                 column(width=7, offset = 1, 
+                        tags$br(),
+                        plotlyOutput(ns("exon_exp"))
+                 )),
+               tags$hr(),
+               plotOutput(ns("gene_model_collapsed"))
+      ),
+      tabPanel("Junction Expression", value="gtex_junc", 
+               fluidRow(
+                 column(width=4, 
+                        tags$br(), 
+                        dataTableOutput(ns("junc_table")),
+                        actionButton(ns("deselect_junc"), label = "Deselect")
+                 ),
+                 column(width=7, offset = 1, 
+                        tags$br(),
+                        plotlyOutput(ns("junc_exp"))
+                 )
+               ),
+               tags$hr(),
+               plotOutput(ns("junc_gene_model"))
+      )
     )
   )
 }
 
-genevis<-function(input, output, session, tissues_samples, gene_id,
-                  conn){ # this needs data as well
+genevis<-function(input, output, session, tissues_samples, genes, login, conn){ # this needs data as well
   
-  txdf_full<-reactive({
-    txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed=F)
-    return(txdf)
+  output$gene_picker_ui<-renderUI({
+    if(login$login){
+      tagList(
+        pickerInput(inputId = session$ns("gene_picker"), label = "Select a gene to view expression details", 
+                    choices = genes()$genesymbol, multiple = F, options = list(`live-search`=T, size=10), 
+                    selected = NULL)
+      )
+    } else {
+      NULL
+    }
   })
   
-  txdf_collapsed<-reactive({
-    txdf<-parse_exon_df(conn = conn, gene_name = gene_id()[1], collapsed = T)
-    return(txdf)
+  output$selection_ui<-renderUI({
+    if(login$login){
+      tagList(
+        tags$br(),
+        radioGroupButtons(session$ns("isoform_tpm_reads"), label = "TPM or read count?", 
+                          choices = c("TPM", "Read Count"), direction = "vertical", 
+                          selected = "TPM"))
+    } else {
+      NULL
+    }
   })
   
+  txdf<-reactive({
+    gene_name<-genes()$geneid[genes()$genesymbol==input$gene_picker]
+    txdf_full<-parse_exon_df(conn = conn, gene_name = gene_name, collapsed=F)
+    txdf_collapsed<-parse_exon_df(conn = conn, gene_name = gene_name, collapsed=T)
+    txdf<-list(gene_id=gene_name, full=txdf_full, collapsed=txdf_collapsed)
+    return(txdf)
+  })
   
   expression_data<-reactive({
-    if(!is.null(gene_id())){
+    if(!is.null(txdf()$gene_id)){
       if(input$isoform_tpm_reads=="TPM"){
         iso_tbl<-"transcript_tpm"
       } else {
         iso_tbl<-"transcript_reads"
       }
-      isoform_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
+      isoform_expression<-get_expression(conn=conn, gene_id=txdf()$gene_id, 
                                          tissues_samples=tissues_samples(), 
                                          table=iso_tbl, extra_columns='"transcript_id"')
-      exon_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
+      exon_expression<-get_expression(conn=conn, gene_id=txdf()$gene_id, 
                                       tissues_samples=tissues_samples(), 
                                       table="exon_reads", extra_columns='"exon_id"')
-      junction_expression<-get_expression(conn=conn, gene_id=gene_id()[1], 
+      junction_expression<<-get_expression(conn=conn, gene_id=txdf()$gene_id, 
                                           tissues_samples=tissues_samples(), 
-                                          table="junctions", extra_columns=c('"junction_id"', '"start"','"end"'))
+                                          table="junction_reads", extra_columns=c('"junction_id"', '"start"','"end"'))
       expression_data<-list(isoform=isoform_expression, exon=exon_expression, junction=junction_expression)
     } else {
       expression_data<-list(isoform=NULL, exon=NULL, junction=NULL)
@@ -85,54 +106,56 @@ genevis<-function(input, output, session, tissues_samples, gene_id,
     return(expression_data)
   })
   
+  
   output$isoform_exp<-renderPlotly({
-    if(!is.null(gene_id())){
-      plot_ly(data = expression_data()$isoform, x=~tissue, y=~value, 
-              color=~transcript_id, type = "box", source = "isoform_boxplot")%>%
-        layout(boxmode = "group", xaxis=list(title="Tissue"), 
-               yaxis=list(title=input$isoform_tpm_reads))
-    } else {
-      NULL
-    }
+    if(login$login & length(txdf()$gene_id)>0){
+        plot_ly(data = expression_data()$isoform, x=~tissue, y=~value, 
+                color=~transcript_id, type = "box", source = "isoform_boxplot")%>%
+          layout(boxmode = "group", xaxis=list(title="Tissue"), 
+                 yaxis=list(title=input$isoform_tpm_reads))
+      } else {
+        NULL
+      }
   })
   
-  output$gene_model_exp<-renderPlot({
-    if(!is.null(gene_id())){
+  output$isoform_model<-renderPlot({
+    if(login$login & length(txdf()$gene_id)>0){
       hover<-event_data(event = "plotly_hover", source="isoform_boxplot")$curveNumber+1
-      p<-plot_transcripts(tx_df= txdf_full(), hover=hover)
+      p<-plot_transcripts(tx_df= txdf()$full, hover=hover)
       p
     } else {
       NULL
     }
   },height = function() {
-    if(!is.null(txdf_full())){
-      max(txdf_full()$tx_rank*40)
+    if(nrow(txdf()$full)>0){
+      max(txdf()$full$tx_rank*40)
     } else {
       50
     }
-  }
-  )
+  })
   
   output$exon_table<-renderDataTable({
-    if(is.null(gene_id())){
-      NULL
+    if(login$login & length(txdf()$gene_id)>0){
+      dat<-txdf()$collapsed
+      dat<-dat[dat$class=="exon",]
+      dat<-dat[order(as.integer(dat$exonrank)),]
+      rownames(dat)<-c(1:nrow(dat))
+      datatable(dat[,c("exonname", "exonrank")])
     } else {
-    dat<-txdf_collapsed()[txdf_collapsed()$class=="exon",]
-    dat<-dat[order(as.integer(dat$exonrank)),]
-    rownames(dat)<-c(1:nrow(dat))
-    datatable(dat[,c("exonname", "exonrank")])
+      NULL
     }
   })
   
+  #TODO make this a ui
   exon_select_proxy<-dataTableProxy("exon_table", session = session)
   observeEvent(input$deselect_exon, {
     selectRows(exon_select_proxy, NULL)
   })
   
   output$exon_exp<-renderPlotly({
-    nointron<-txdf_collapsed()[txdf_collapsed()$class=="exon",]
+    nointron<-txdf()$collapsed[txdf()$collapsed$class=="exon",]
     exons<-nointron$exonname[input$exon_table_rows_selected]
-    if(!is.null(gene_id())){
+    if(login$login & length(txdf()$gene_id)>0){
       if (length(exons)>0){
         plot_data<-expression_data()$exon[(expression_data()$exon$exon_id %in% exons), ]
         plot_ly(data = plot_data,
@@ -150,17 +173,18 @@ genevis<-function(input, output, session, tissues_samples, gene_id,
   
   #need to change the highlighting mode
   output$gene_model_collapsed<-renderPlot({
-    if(!is.null(gene_id())){
+    if(login$login & length(txdf()$gene_id)>0){
       select<-input$exon_table_rows_selected
-      p<-plot_exons(tx_df= txdf_collapsed(), select=select)
+      p<-plot_exons(tx_df= txdf()$collapsed, select=select)
       p
     } else {
       NULL
     }
   }, height = 50)
   
+  
   draw_junction<-reactive({
-    if(!is.null(gene_id()) && dim(do.call("rbind",expression_data()$junction))[2]>0){
+    if(!is.null(txdf()$gene_id) && dim(do.call("rbind",expression_data()$junction))[2]>0){
       return(T)
     } else {
       return(F)
@@ -198,20 +222,22 @@ genevis<-function(input, output, session, tissues_samples, gene_id,
       NULL
     }
   })
-
+  
   
   #need to change the highlighting mode
   output$junc_gene_model<-renderPlot({
     if(draw_junction()) {
       junc_data<-expression_data()$junction
       select<-input$junc_table_rows_selected
-      p<-plot_junctions(junc_exp=junc_data, tx_df= txdf_collapsed(), select=select)
+      p<-plot_junctions(junc_exp=junc_data, tx_df= txdf()$collapsed, select=select)
       p
     } else {
       NULL
     }
   }, height = 200)
+  
 }
+
 
 
 

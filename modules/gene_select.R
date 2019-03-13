@@ -33,7 +33,7 @@ gene_select_server<-function(input, output, session, conn, login){
     }
   })
   
-  query<-"select geneid,genesymbol from annotation.median_expression"
+  query<-"select geneid,genesymbol from annotation.gene_names"
   query<-sqlInterpolate(conn, query)
   gene_table<-dbGetQuery(conn, query)
   
