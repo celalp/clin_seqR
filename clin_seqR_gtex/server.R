@@ -26,6 +26,8 @@ server<-function(input, output, session){
   suppressPackageStartupMessages(library(tm))
   suppressPackageStartupMessages(library(data.table))
   suppressPackageStartupMessages(library(shinyBS))
+  suppressPackageStartupMessages(library(openssl))
+  
   
   options(warn=-1)
   
@@ -45,11 +47,18 @@ server<-function(input, output, session){
       )
     } else {
       fluidRow(
-        textInput(inputId = "username", label = "Username"),
+        textInput(inputId = "username", label = "Email"),
         passwordInput(inputId = "password", label = "Password"),
         actionButton(inputId = "login_button", label = "Login", icon=icon("sign-in"))
       )
     }
+  })
+  
+  output$login_prompt<-renderUI({
+      alert_box(alert="Please login with your credentials above", color="maroon", condition=!login_status$login)
+      #valueBox(value = "", color = "maroon", 
+      #         subtitle = "Please login with your credentials above", width = 12)
+      
   })
   
   observeEvent(input$login_button, {
@@ -57,7 +66,7 @@ server<-function(input, output, session){
       login_status$login<-F
       toastr_success("Logout successful")
     } else {
-      if(input$username=="User" & input$password=="pass"){
+      if(check_credentials(input$username, input$password, gtex)){
         toastr_success("Login successful")
         login_status$login<-T
       } else {
@@ -71,19 +80,15 @@ server<-function(input, output, session){
     login_status$login
   })
   
-  #this returns a data frame of gene
+  #this returns a data frame of genes
   gene_selection<-callModule(module=gene_select_server, id="gene_select", conn=gtex, login=login_status)
   
-  #TODO return tissues and samples
   tissue_selection<-callModule(module=tissue_select, id="tissue_select", conn=gtex, login=login_status)
-  
-  callModule(module=median_heatmap, id="median_heatmap", conn=gtex, login=login_status, genesymbol=gene_selection)
   
   callModule(gene_expression, id="gene_expression", conn=gtex, login=login_status, 
                            genes=gene_selection, tissues_samples=tissue_selection)
   
-  #TODO add the gene title in the module
-  callModule(module = genevis, id = "gtex_plot", tissues_samples=tissue_selection, 
+  callModule(module = genevis, id = "detailed_expression", tissues_samples=tissue_selection, 
              conn=gtex, genes=gene_selection, login=login_status)
   
   session$onSessionEnded(

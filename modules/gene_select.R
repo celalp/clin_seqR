@@ -5,21 +5,14 @@ gene_select_ui<-function(id){
     uiOutput(ns("selection_mode")),
     uiOutput(ns("gene_select")),
     br(),
-    uiOutput(ns("buttons"))
+    uiOutput(ns("buttons")),
+    br(),
+    uiOutput(ns("median_heatmap"))
   )
 }
 
 
 gene_select_server<-function(input, output, session, conn, login){
-  output$buttons<-renderUI({
-    if(login$login){
-      tagList(
-        actionButton(session$ns("get_conn_dbs"), label = "Select Genes")
-      )
-    } else {
-      NULL
-    }
-  })
   
   output$selection_mode<-renderUI({
     if(login$login){
@@ -69,7 +62,7 @@ gene_select_server<-function(input, output, session, conn, login){
     selectRows(gene_select_proxy, NULL)
   })
   
-  genes<-eventReactive(input$get_conn_dbs, {
+  genes<-eventReactive(c(input$get_conn_dbs, input$deselect), {
     if(input$conn_selection_type=="Select From List"){
       genes<-gene_table[input$selection_table_rows_selected,]
     } else if (input$conn_selection_type == "Enter Text"){
@@ -88,8 +81,72 @@ gene_select_server<-function(input, output, session, conn, login){
       genes<-gene_table %>%
         filter(genesymbol %in% panel_genes)
     }
+    if(nrow(genes)==0){
+      genes<-NULL
+    }
     return(genes)
   })
   
+  output$buttons<-renderUI({
+    if(login$login){
+      tagList(
+        actionButton(session$ns("get_conn_dbs"), label = "Select Genes")
+      )
+    } else {
+      NULL
+    }
+  })
+  
+  output$median_heatmap<-renderUI({
+    if(login$login){
+      tagList(
+        actionButton(session$ns("show"), label = "Show median expression")
+      )
+    } else {
+      NULL
+    }
+  })
+  
+  observeEvent(input$show, {
+    if(is.null(genes())){
+      output$heatmap<-renderUI({
+        valueBox(value = "", color = "maroon", 
+                 subtitle = "You must first select genes to display the heatmap", width = 12)
+      })
+    } else {
+      genes<-paste("'", genes()$genesymbol, "'", sep="", collapse = ",")
+      query<-paste("select * from samples.median_expression where genesymbol in (", genes, ")", sep = "")
+      query<-sqlInterpolate(conn, query)
+      forheat<-dbGetQuery(conn, query)
+      tissues<-colnames(forheat)[-c(1:3)]
+      genes<-as.character(forheat$genesymbol)
+      mat<-as.matrix(forheat[,-c(1:3)])
+      ## rescale colors
+      vals <- unique(scales::rescale(c(mat)))
+      o <- order(vals, decreasing = FALSE)
+      cols <- scales::col_numeric("Spectral", domain = NULL)(vals)
+      colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+      output$modal_heatmap<-renderPlotly({
+        plot_ly(y=tissues, x=genes, z=t(mat), type="heatmap", 
+                source="tpm_heatplot", colorscale=colz) %>% 
+          layout(xaxis=list(title="", dtick=1), 
+                 yaxis=list(title="", dtick=1))
+      })
+      output$heatmap<-renderUI({
+        withSpinner(
+          plotlyOutput(session$ns("modal_heatmap"), height = "600px")
+        )
+      })
+    }
+    showModal(modalDialog(
+      uiOutput(session$ns("heatmap")),
+      title = "Median Expression of Selected Gene(s) in All Tissues",
+      easyClose = TRUE, size = "l"
+    ))
+  })
+  
+  
   return(genes)
 }
+
+

@@ -8,7 +8,7 @@ gene_expression_ui<-function(id){
     br(),
     column(width=2, 
            uiOutput(ns("read_tpm_buttons"))
-    ), 
+    ),
     column(width=10, 
            uiOutput(ns("gene_expression_plot"))
     )
@@ -32,9 +32,9 @@ gene_expression<-function(input, output, session, login, conn, genes, tissues_sa
   #TODO it would be nice to include a search box if the number of genes selected exceeds 3 pages
   output$gene_expression_plot<-renderUI({
     if(login$login){
+      
       genes_data<-reactive({
-        if(is.null(tissues_samples())){
-          #TODO add conditional panel with a value box
+        if(is.null(tissues_samples()) | is.null(genes())){
           expression_data<-NULL
         } else {
           if(input$gene_tpm_reads=="TPM"){
@@ -109,7 +109,13 @@ gene_expression<-function(input, output, session, login, conn, genes, tissues_sa
         }
       })
       
+      output$gene_alert<-renderUI({
+        alert_box(alert = "Please select genes and tissues above to see expression distribution", 
+                  color = "maroon", condition = is.null(genes_data()))
+      })
+      
       tagList(
+        uiOutput(session$ns("gene_alert")),
         plotlyOutput(session$ns("gene_boxplot")),
         column(width = 3, offset = 9, 
                uiOutput(session$ns("page_navigation"))

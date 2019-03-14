@@ -1,19 +1,33 @@
 TODO
 
-add notification when not logged in
-add notifications when no genes are selected
-add notification when the exon count is <2 (so there are no junctions)
-move exon and junction deselect button to their renderUI so they are not displayed when not logged in 
+add notification when not logged in DONE
+add notifications when no genes are selected 
+	for heatmap DONE
+	for gene expression DONE
+	for isoform expression DONE
+	for exon expression DONE
+	for junction expression DONE
+	for tissue selection DONE
 
-remove sample filters
+change backgroud color for theme or plot
 
-create user/project sample tables
-move login from hardcoded to actually checking credentials
-change password option
+add notification when the exon count is <2 (so there are no junctions) DONE
+move exon and junction deselect button to their renderUI so they are not displayed when not logged in DONE
+
+remove sample filters DONE
+
+move heatmap to modal DONE
+
+create user/project sample tables DONE
+move login from hardcoded to actually checking credentials DONE
+change password option, this goes into account settings
+temporary password option, if boolean prompt user to change password
+move password login to a separate secrets file and load that to R during startup
 
 double check sqlite2postgres.py for bugs
 
 create a script to upload annotations (collapsed and full)
+create a script to add users DONE (but not projects)
 
 talk to sergey/dennis about how RNA-Seq samples are run, run them yourself
 

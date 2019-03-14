@@ -9,7 +9,7 @@ tissue_select_ui<-function(id){
     ),
     column(width=8, 
            tagList(
-           uiOutput(ns("plots"))
+             uiOutput(ns("plots"))
            )
     )
   )
@@ -38,45 +38,22 @@ tissue_select<-function(input, output, session, conn, login){
   output$filters<-renderUI({
     if(login$login){
       tagList(
-        tabsetPanel(
-          tabPanel(title = "Subject Filters",
-                   tagList(
-                     radioGroupButtons(session$ns("all_or_common"), label = "Use all or overlapping samples", 
-                                       choices = c("All", "Overlapping"), direction = "vertical", 
-                                       selected = "All"), 
-                     checkboxGroupInput(inputId = session$ns("sex_filter"), label = "Sex", 
-                                        choices = c("Male", "Female")), 
-                     checkboxGroupInput(inputId = session$ns("age_filter"), label = "Age group", 
-                                        choices = c("20-29", "30-39", "40-49", 
-                                                    "50-59", "60-69", "70-79")),
-                     checkboxGroupInput(inputId = session$ns("death_filter"), label = "Cause of death", 
-                                        choices = c("Ventilator Case", "Fast and Violent", "Fast", 
-                                                    "Intermediate", "Slow", "Unavailable"))
-                   )
-          ),
-          tabPanel(title="Sample Filters",
-                   tagList(
-                     tags$h4("Sample isolation"),
-                     sliderTextInput(inputId = session$ns("autolys"),
-                                     label = "Minimum Autolysis Level:", 
-                                     choices = c("None", "Mild", "Moderate", "Severe")
-                     ), 
-                     sliderTextInput(inputId = session$ns("rin"),
-                                     label = "Minimum RNA Integrity (RIN):", 
-                                     choices = c(1:10),
-                                     grid = TRUE
-                     ),
-                     tags$h4("Data Processing"), 
-                     sliderTextInput(inputId = session$ns("map_rate"),
-                                     label = "Minimum mapping rate (%):", 
-                                     choices = c(1:100),
-                                     grid = TRUE
-                     )
-                   )
-          )
+        tags$h2("Subject Filters"),
+        tagList(
+          radioGroupButtons(session$ns("all_or_common"), label = "Use all or overlapping samples", 
+                            choices = c("All", "Overlapping"), direction = "vertical", 
+                            selected = "All"), 
+          checkboxGroupInput(inputId = session$ns("sex_filter"), label = "Sex", 
+                             choices = c("Male", "Female")), 
+          checkboxGroupInput(inputId = session$ns("age_filter"), label = "Age group", 
+                             choices = c("20-29", "30-39", "40-49", 
+                                         "50-59", "60-69", "70-79")),
+          checkboxGroupInput(inputId = session$ns("death_filter"), label = "Cause of death", 
+                             choices = c("Ventilator Case", "Fast and Violent", "Fast", 
+                                         "Intermediate", "Slow", "Unavailable"))
         )
-       # actionButton(session$ns("apply_filter"), label = "Apply Filters")
       )
+      # actionButton(session$ns("apply_filter"), label = "Apply Filters")
     } else {
       NULL
     }
@@ -137,7 +114,13 @@ tissue_select<-function(input, output, session, conn, login){
         }
       })
       
+      output$tissue_alert<-renderUI({
+        alert_box(alert = "Please select tissues to see population distribution", color = "maroon", 
+                  condition = is.null(samp_sub()))
+      })
+      
       tagList(
+        uiOutput(session$ns("tissue_alert")),
         tags$h4("Sex Distribution"),
         plotlyOutput(session$ns("sex_dist")), 
         br(),
@@ -150,8 +133,12 @@ tissue_select<-function(input, output, session, conn, login){
   })
   
   return(reactive({
-    tissues_samples<<-get_tissues_samples(samp_sub())
-    return(tissues_samples)
-    }))
+    if(!is.null(samp_sub())){
+      tissues_samples<-get_tissues_samples(samp_sub())
+      return(tissues_samples)
+    } else {
+      NULL
+    }
+  }))
 }
 

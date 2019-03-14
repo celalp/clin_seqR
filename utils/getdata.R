@@ -221,4 +221,33 @@ get_tissues_samples<-function(table){
   return(sample_list)
 }
 
+check_credentials<-function(username, password, conn){
+  cred_str<-paste0("select username, password from user_sample_proj.users where username='", username, "'", 
+                   " and password='", as.character(sha512(password)), "'")
+  result<-nrow(query<-dbGetQuery(conn, cred_str))==1
+  return(result)
+}
 
+add_user<-function(username, password, conn){ #this is not done, need to include project id
+  base<-"insert into user_sample_proj.users (username, password, created_at) values(" 
+  username<-paste0("'", username, "'")
+  password<-paste0("'", as.character(sha512(password)), "'")
+  created<-paste0("'", as.numeric(Sys.time()), "'")
+  statement<-paste(base, username, ",", password, ",", created, ")")
+  dbSendStatement(conn, statement)
+}
+
+
+alert_box<-function(alert="msg", color="red", condition, width=12){
+  if(condition){
+    return(valueBox(value = "", color = color, 
+             subtitle = alert, width = width))
+  } else {
+    NULL
+  }
+}
+
+delete_user<-function(username, conn){
+  statement<-paste0("delete from user_sample_proj.users where username='", username, "'")
+  dbSendStatement(conn, statement)
+}

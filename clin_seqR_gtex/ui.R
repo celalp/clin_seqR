@@ -16,20 +16,17 @@ suppressPackageStartupMessages(library(shinyjs))
 suppressPackageStartupMessages(library(DBI))
 suppressPackageStartupMessages(library(viridis))
 suppressPackageStartupMessages(library(shinyBS))
-suppressPackageStartupMessages(library(shinythemes))
 suppressPackageStartupMessages(library(shinydashboard))
 suppressPackageStartupMessages(library(dashboardthemes))
 suppressPackageStartupMessages(library(shinydashboardPlus))
 
 
-#TODO move tissue selection to the gene selection panel 
 #TODO include conditional panels for alerting when selections are not valid
 
 source("../modules/geneviz.R")
 source("../utils/getdata.R")
 source("../modules/gene_select.R")
 source("../modules/tissue_select.R")
-source("../modules/median_heatmap.R")
 source("../modules/gene_expression.R")
 
 ui<-dashboardPagePlus(
@@ -53,39 +50,26 @@ ui<-dashboardPagePlus(
     )
   ), 
   dashboardBody(
-    shinyDashboardThemes(theme = "grey_light"),
-    useToastr(), 
-    useShinyjs(), 
-    tabItems(
-      tabItem(tabName = "gtex", #TODO need to add bs alerts to median expression, gene expression dist, and genevis
-              fluidRow(
+    fluidRow(
+      shinyDashboardThemes(theme = "grey_light"),
+      useToastr(), 
+      useShinyjs(),
+      uiOutput("login_prompt"),
+      tabItems(
+        tabItem(tabName = "gtex", #TODO need to add bs alerts to median expression, gene expression dist, and genevis
                 box(title = "Select Gene(s)", width = 4, 
                     gene_select_ui("gene_select")), 
                 box(title = "Select tissue(s)", width = 8,
-                    tissue_select_ui("tissue_select"))
-              ), 
-              fluidRow(
-                box(title = "Median Expression", width = 12, collapsible = T, 
-                median_heatmap_ui("median_heatmap"))
-              ),
-              fluidRow(
+                    tissue_select_ui("tissue_select")),
                 box(title = "Gene Expression Distribution", width = 12, collapsible = T,
-                    gene_expression_ui("gene_expression")
-                    ),
+                    gene_expression_ui("gene_expression")),
                 box(title = "Isoform/Exon/Junction Expression",  width = 12, collapsible = T, 
                     collapsed = F,
-                    tagList(
-                      #uiOutput("title"),
-                      genevis_ui("gtex_plot")
-                    )
-                )
-              )
+                    genevis_ui("detailed_expression"))
+        ), 
+        tabItem(tabName = "expression"), 
+        tabItem(tabName = "variants")
       )
-    ), 
-    tabItem(tabName = "expression"), 
-    tabItem(tabName = "variants")
+    )
   )
-  
-  
-  
 )
